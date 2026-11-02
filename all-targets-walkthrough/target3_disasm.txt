@@ -1,0 +1,84 @@
+=== vulnerable ===
+
+target3:     file format elf32-i386
+
+
+Disassembly of section .init:
+
+Disassembly of section .plt:
+
+Disassembly of section .text:
+
+0804a035 <vulnerable>:
+ 804a035:	55                   	push   ebp
+ 804a036:	89 e5                	mov    ebp,esp
+ 804a038:	53                   	push   ebx
+ 804a039:	81 ec 14 08 00 00    	sub    esp,0x814
+ 804a03f:	e8 89 00 00 00       	call   804a0cd <__x86.get_pc_thunk.ax>
+ 804a044:	05 bc df 09 00       	add    eax,0x9dfbc
+ 804a049:	83 ec 04             	sub    esp,0x4
+ 804a04c:	68 08 08 00 00       	push   0x808
+ 804a051:	ff 75 08             	push   DWORD PTR [ebp+0x8]
+ 804a054:	8d 95 f0 f7 ff ff    	lea    edx,[ebp-0x810]
+ 804a05a:	52                   	push   edx
+ 804a05b:	89 c3                	mov    ebx,eax
+ 804a05d:	e8 f6 ef ff ff       	call   8049058 <.plt+0x38>
+ 804a062:	83 c4 10             	add    esp,0x10
+ 804a065:	8b 45 f4             	mov    eax,DWORD PTR [ebp-0xc]
+ 804a068:	8b 55 f0             	mov    edx,DWORD PTR [ebp-0x10]
+ 804a06b:	89 10                	mov    DWORD PTR [eax],edx
+ 804a06d:	90                   	nop
+ 804a06e:	8b 5d fc             	mov    ebx,DWORD PTR [ebp-0x4]
+ 804a071:	c9                   	leave  
+ 804a072:	c3                   	ret    
+
+Disassembly of section __libc_freeres_fn:
+
+Disassembly of section .fini:
+=== _main ===
+
+target3:     file format elf32-i386
+
+
+Disassembly of section .init:
+
+Disassembly of section .plt:
+
+Disassembly of section .text:
+
+0804a073 <_main>:
+ 804a073:	55                   	push   ebp
+ 804a074:	89 e5                	mov    ebp,esp
+ 804a076:	53                   	push   ebx
+ 804a077:	83 ec 04             	sub    esp,0x4
+ 804a07a:	e8 4e 00 00 00       	call   804a0cd <__x86.get_pc_thunk.ax>
+ 804a07f:	05 81 df 09 00       	add    eax,0x9df81
+ 804a084:	83 7d 08 02          	cmp    DWORD PTR [ebp+0x8],0x2
+ 804a088:	74 25                	je     804a0af <_main+0x3c>
+ 804a08a:	c7 c2 2c 84 0e 08    	mov    edx,0x80e842c
+ 804a090:	8b 12                	mov    edx,DWORD PTR [edx]
+ 804a092:	52                   	push   edx
+ 804a093:	6a 24                	push   0x24
+ 804a095:	6a 01                	push   0x1
+ 804a097:	8d 90 7c e0 fc ff    	lea    edx,[eax-0x31f84]
+ 804a09d:	52                   	push   edx
+ 804a09e:	89 c3                	mov    ebx,eax
+ 804a0a0:	e8 4b dc 00 00       	call   8057cf0 <_IO_fwrite>
+ 804a0a5:	83 c4 10             	add    esp,0x10
+ 804a0a8:	b8 01 00 00 00       	mov    eax,0x1
+ 804a0ad:	eb 19                	jmp    804a0c8 <_main+0x55>
+ 804a0af:	8b 45 0c             	mov    eax,DWORD PTR [ebp+0xc]
+ 804a0b2:	83 c0 04             	add    eax,0x4
+ 804a0b5:	8b 00                	mov    eax,DWORD PTR [eax]
+ 804a0b7:	83 ec 0c             	sub    esp,0xc
+ 804a0ba:	50                   	push   eax
+ 804a0bb:	e8 75 ff ff ff       	call   804a035 <vulnerable>
+ 804a0c0:	83 c4 10             	add    esp,0x10
+ 804a0c3:	b8 00 00 00 00       	mov    eax,0x0
+ 804a0c8:	8b 5d fc             	mov    ebx,DWORD PTR [ebp-0x4]
+ 804a0cb:	c9                   	leave  
+ 804a0cc:	c3                   	ret    
+
+Disassembly of section __libc_freeres_fn:
+
+Disassembly of section .fini:

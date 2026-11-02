@@ -1,0 +1,1431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C to Assembly: Reading the Stack with GDB</title>
+<style>
+  :root {
+    --ink: #17202b;
+    --muted: #5b6879;
+    --bg: #f3f6fa;
+    --card: #ffffff;
+    --line: #d9e1eb;
+    --red: #b42318;
+    --red-bg: #fef3f2;
+    --green: #13713d;
+    --green-bg: #ecfdf3;
+    --blue: #1d5fa7;
+    --blue-bg: #eff6ff;
+    --amber: #8a5a00;
+    --amber-bg: #fffaeb;
+    --purple: #6941c6;
+    --purple-bg: #f4f0ff;
+    --code-bg: #101823;
+    --code-ink: #dce7f4;
+    --code-muted: #899bb0;
+    --mono: "Cascadia Code", Consolas, "SFMono-Regular", "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 12% 0%, #e2ecff 0, transparent 32rem),
+      radial-gradient(circle at 90% 18%, #e7f8ef 0, transparent 28rem),
+      var(--bg);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+  }
+  a { color: var(--blue); }
+  code, pre { font-family: var(--mono); }
+  .wrap { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
+
+  header.hero {
+    color: #f8fbff;
+    background:
+      radial-gradient(circle at 80% 12%, rgba(80, 151, 255, .28) 0, transparent 25rem),
+      radial-gradient(circle at 16% 82%, rgba(72, 211, 146, .14) 0, transparent 20rem),
+      linear-gradient(135deg, #101823 0%, #182a3e 54%, #14332b 100%);
+    border-bottom: 1px solid #0a1017;
+    padding: 62px 0 46px;
+  }
+  .eyebrow {
+    color: #7de0a8;
+    text-transform: uppercase;
+    letter-spacing: .17em;
+    font-size: .74rem;
+    font-weight: 800;
+    margin-bottom: 14px;
+  }
+  h1 {
+    max-width: 980px;
+    margin: 0;
+    font-size: clamp(2.1rem, 5vw, 4rem);
+    line-height: 1.04;
+    letter-spacing: -.035em;
+  }
+  .lede {
+    max-width: 860px;
+    color: #bdcad9;
+    font-size: 1.08rem;
+    margin: 22px 0 26px;
+  }
+  .badges { display: flex; flex-wrap: wrap; gap: 9px; }
+  .badge {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+    padding: 7px 11px;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 999px;
+    background: rgba(255,255,255,.06);
+    color: #e8eff8;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+  }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #7de0a8; }
+  .badge.blue .dot { background: #84bdff; }
+  .badge.amber .dot { background: #ffc266; }
+
+  main { padding: 38px 0 80px; }
+  section { margin: 52px 0; scroll-margin-top: 18px; }
+  h2 {
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    line-height: 1.16;
+    letter-spacing: -.025em;
+    margin: 0 0 8px;
+  }
+  h2 .num {
+    display: inline-grid;
+    place-items: center;
+    vertical-align: 4px;
+    width: 34px;
+    height: 34px;
+    margin-right: 8px;
+    border-radius: 10px;
+    background: #18283b;
+    color: #fff;
+    font-size: .94rem;
+    letter-spacing: 0;
+  }
+  h3 { font-size: 1.12rem; margin: 26px 0 8px; }
+  p { margin: 10px 0; }
+  .section-intro { color: var(--muted); max-width: 900px; margin-bottom: 20px; }
+
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px 22px;
+    margin-bottom: 38px;
+    box-shadow: 0 8px 24px rgba(22,34,51,.05);
+  }
+  .toc strong { display: block; font-size: .76rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 9px; }
+  .toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 36px; }
+  .toc li { margin: 5px 0; break-inside: avoid; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px;
+    box-shadow: 0 8px 24px rgba(22,34,51,.045);
+  }
+  .grid { display: grid; gap: 16px; }
+  .grid.two { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .grid.three { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .grid.five { grid-template-columns: repeat(5, minmax(0,1fr)); }
+  .stat { padding: 18px 20px; }
+  .stat .label { color: var(--muted); font-size: .71rem; text-transform: uppercase; letter-spacing: .11em; font-weight: 800; }
+  .stat .value { font-family: var(--mono); font-size: 1.1rem; font-weight: 800; margin-top: 6px; word-break: break-word; }
+  .stat .hint { color: var(--muted); font-size: .84rem; margin-top: 3px; }
+
+  .callout {
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin: 18px 0;
+    border: 1px solid;
+  }
+  .callout strong:first-child { display: block; margin-bottom: 3px; }
+  .callout.danger { background: var(--red-bg); border-color: #f5c7c2; color: #68130d; }
+  .callout.success { background: var(--green-bg); border-color: #b7ebc9; color: #0b5130; }
+  .callout.info { background: var(--blue-bg); border-color: #c7ddf8; color: #123f72; }
+  .callout.warn { background: var(--amber-bg); border-color: #f2d28a; color: #664000; }
+  .callout.purple { background: var(--purple-bg); border-color: #d9ccff; color: #3f2a83; }
+
+  pre {
+    margin: 16px 0;
+    padding: 18px 20px;
+    border-radius: 14px;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    font-size: .81rem;
+    line-height: 1.55;
+    overflow-x: auto;
+    border: 1px solid #263649;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+  }
+  pre .c { color: var(--code-muted); }
+  pre .g { color: #7be0a3; }
+  pre .r { color: #ff8d84; }
+  pre .y { color: #ffd166; }
+  pre .b { color: #8ec5ff; }
+  pre .p { color: #c7a7ff; }
+
+  .file-label {
+    display: inline-block;
+    margin: 18px 0 -8px;
+    padding: 5px 10px;
+    border-radius: 8px 8px 0 0;
+    background: #1b2a3d;
+    color: #bdd0e5;
+    font-family: var(--mono);
+    font-size: .72rem;
+    border: 1px solid #2b3d53;
+    border-bottom: 0;
+  }
+  .file-label + pre { margin-top: 0; border-top-left-radius: 0; }
+
+  .table-wrap { overflow-x: auto; margin: 16px 0; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+  table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+  th, td { text-align: left; padding: 10px 13px; border-bottom: 1px solid #e9eef5; vertical-align: top; }
+  th { background: #f7f9fc; color: #455367; font-size: .71rem; text-transform: uppercase; letter-spacing: .08em; }
+  tr:last-child td { border-bottom: 0; }
+  td.mono, th.mono { font-family: var(--mono); }
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 800;
+    white-space: nowrap;
+    background: #e8edf5;
+    color: #344257;
+  }
+  .pill.red { background: var(--red-bg); color: var(--red); }
+  .pill.green { background: var(--green-bg); color: var(--green); }
+  .pill.blue { background: var(--blue-bg); color: var(--blue); }
+  .pill.amber { background: var(--amber-bg); color: var(--amber); }
+  .pill.purple { background: var(--purple-bg); color: var(--purple); }
+
+  /* ---------- interactive lab ---------- */
+  .lab {
+    border: 1px solid #bfcde0;
+    border-radius: 20px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    box-shadow: 0 18px 50px rgba(23, 42, 68, .10);
+    overflow: hidden;
+  }
+  .lab-top {
+    padding: 20px 22px 0;
+    background: linear-gradient(135deg, #16273a, #1b3a33);
+    color: #eef7ff;
+  }
+  .lab-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 18px; }
+  .lab-tab {
+    appearance: none;
+    border: 1px solid rgba(255,255,255,.18);
+    background: rgba(255,255,255,.06);
+    color: #dce9f6;
+    padding: 8px 13px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: .82rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .lab-tab:hover { background: rgba(255,255,255,.12); }
+  .lab-tab.active { background: #7de0a8; color: #10251a; border-color: #7de0a8; }
+  .lab-subtitle { color: #aec2d7; font-size: .86rem; margin: -4px 0 16px; }
+
+  .lab-body { padding: 20px 22px 22px; }
+  .lab-main { display: grid; grid-template-columns: 1.08fr .92fr; gap: 18px; }
+  .panel {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .panel-title {
+    padding: 9px 13px;
+    background: #f7f9fc;
+    border-bottom: 1px solid var(--line);
+    color: #526075;
+    font-size: .71rem;
+    font-weight: 800;
+    letter-spacing: .10em;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+  }
+  .panel-title .tiny { font-size: .68rem; font-weight: 600; letter-spacing: .02em; text-transform: none; color: #7a8798; }
+
+  .src-box, .asm-box { padding: 9px 0; font-family: var(--mono); font-size: .80rem; line-height: 1.5; background: #101823; color: #dce7f4; }
+  .src-line, .asm-line { display: grid; grid-template-columns: 42px minmax(0,1fr); gap: 8px; padding: 2px 12px; white-space: pre; }
+  .src-line .ln { color: #62758b; text-align: right; user-select: none; }
+  .src-line.active { background: rgba(125, 224, 168, .16); box-shadow: inset 3px 0 0 #7de0a8; }
+  .src-line.active .ln { color: #7de0a8; }
+  .asm-line { grid-template-columns: 78px 62px minmax(0,1fr); }
+  .asm-line .addr { color: #6f849b; }
+  .asm-line .mn { color: #ffd166; }
+  .asm-line .op { color: #dce7f4; overflow: hidden; text-overflow: ellipsis; }
+  .asm-line .cm { color: #7e92a8; }
+  .asm-line.active { background: rgba(125, 224, 168, .14); box-shadow: inset 3px 0 0 #7de0a8; }
+  .asm-line.active .addr { color: #7de0a8; }
+  .asm-line.eip-next { background: rgba(255, 209, 102, .13); box-shadow: inset 3px 0 0 #ffd166; }
+  .asm-line.eip-next .addr { color: #ffd166; }
+  .eip-mark { display: inline-block; margin-left: 7px; padding: 0 5px; border: 1px solid #ffd166; border-radius: 4px; color: #ffd166; font-size: .62rem; font-weight: 800; letter-spacing: .05em; }
+
+  .reg-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; padding: 12px; }
+  .reg {
+    border: 1px solid #e1e7ef;
+    background: #fbfcfe;
+    border-radius: 10px;
+    padding: 8px 10px;
+    min-width: 0;
+  }
+  .reg .name { color: #66758a; font-size: .68rem; font-weight: 800; letter-spacing: .10em; }
+  .reg .v { font-family: var(--mono); font-size: .93rem; font-weight: 800; color: #183049; margin: 2px 0; word-break: break-all; }
+  .reg .why { color: #7c8999; font-size: .72rem; line-height: 1.25; }
+  .reg.esp { border-color: #c5b3f8; background: #f8f4ff; }
+  .reg.esp .v { color: #5b32b4; }
+  .reg.ebp { border-color: #b8d4f8; background: #f4f9ff; }
+  .reg.ebp .v { color: #14549a; }
+  .reg.eip { border-color: #b7ebc9; background: #f3fdf7; }
+  .reg.eip .v { color: #0f6b39; }
+
+  .step-note {
+    margin: 0 12px 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: var(--amber-bg);
+    border: 1px solid #f2d28a;
+    color: #5f3c00;
+    font-size: .87rem;
+  }
+  .step-note strong { color: #4a2d00; }
+
+  .lab-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 18px 0 12px;
+  }
+  .btn {
+    appearance: none;
+    border: 1px solid #b8c6d8;
+    background: #fff;
+    color: #25384e;
+    border-radius: 10px;
+    padding: 8px 13px;
+    font: inherit;
+    font-size: .84rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn:hover { background: #f2f7fd; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.primary { background: #18283b; border-color: #18283b; color: #fff; }
+  .btn.primary:hover { background: #243b55; }
+  .step-count { color: #647286; font-size: .83rem; font-weight: 700; margin-left: auto; }
+
+  .stack-wrap {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .stack-title {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 9px 13px;
+    border-bottom: 1px solid var(--line);
+    background: #f7f9fc;
+    color: #526075;
+    font-size: .71rem;
+    font-weight: 800;
+    letter-spacing: .10em;
+    text-transform: uppercase;
+  }
+  .stack-title .tiny { color: #7a8798; font-size: .68rem; font-weight: 600; letter-spacing: .02em; text-transform: none; }
+  .axis {
+    padding: 5px 13px;
+    font-size: .71rem;
+    font-weight: 700;
+    color: #6d7b8d;
+    background: #fbfcfe;
+    border-bottom: 1px dashed #dfe6ef;
+  }
+  .axis.low { border-bottom: 0; border-top: 1px dashed #dfe6ef; color: #8a5a00; background: #fffdf5; }
+  .stack-table { max-height: 520px; overflow: auto; font-family: var(--mono); font-size: .78rem; }
+  .stack-row {
+    display: grid;
+    grid-template-columns: 94px 104px minmax(0,1fr) 74px;
+    gap: 10px;
+    align-items: center;
+    padding: 6px 13px;
+    border-bottom: 1px solid #edf1f6;
+  }
+  .stack-row:last-child { border-bottom: 0; }
+  .stack-row .addr { color: #5f7084; }
+  .stack-row .val { color: #192c42; font-weight: 800; }
+  .stack-row .what { color: #58687a; font-family: "Segoe UI", system-ui, sans-serif; font-size: .77rem; }
+  .stack-row .tags { text-align: right; white-space: nowrap; }
+  .stack-row .tag { display: inline-block; padding: 1px 5px; border-radius: 4px; font-family: "Segoe UI", system-ui, sans-serif; font-size: .61rem; font-weight: 800; margin-left: 2px; }
+  .tag.esp { background: var(--purple-bg); color: var(--purple); }
+  .tag.ebp { background: var(--blue-bg); color: var(--blue); }
+  .tag.eip { background: var(--green-bg); color: var(--green); }
+  .tag.stale { background: #eef1f5; color: #8491a2; }
+  .stack-row.row-esp { background: #faf7ff; box-shadow: inset 4px 0 0 #7c4dff; }
+  .stack-row.row-ebp { background: #f4f9ff; box-shadow: inset 4px 0 0 #2e77d0; }
+  .stack-row.row-eip { background: #f2fdf7; box-shadow: inset 4px 0 0 #16a34a; }
+  .stack-row.stale { opacity: .48; background: #fafbfc; }
+  .stack-row .val .dec { color: #8a97a7; font-weight: 600; font-size: .68rem; margin-left: 6px; }
+
+  .gdb-extra {
+    margin-top: 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fbfcfe;
+    padding: 12px 14px;
+  }
+  .gdb-extra h3 { margin: 0 0 7px; font-size: .78rem; text-transform: uppercase; letter-spacing: .09em; color: #5b6a7e; }
+  .gdb-extra pre { margin: 0; background: #101823; font-size: .76rem; max-height: 190px; }
+  details.raw {
+    margin-top: 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+  }
+  details.raw summary { cursor: pointer; padding: 10px 13px; background: #f8fafc; color: #4b5b70; font-size: .78rem; font-weight: 700; }
+  details.raw pre { margin: 0; border: 0; border-radius: 0; max-height: 340px; }
+
+  /* ---------- example blocks ---------- */
+  .example-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .example-title { margin: 0; }
+  .example-title small { display: block; color: var(--muted); font-size: .82rem; font-weight: 500; letter-spacing: normal; margin-top: 3px; }
+  .mini-tag { color: #6b798c; font-size: .78rem; font-family: var(--mono); }
+  .example-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .example-grid .card { padding: 0; overflow: hidden; }
+  .example-grid .card h3 { margin: 0; padding: 10px 14px; background: #f7f9fc; border-bottom: 1px solid var(--line); font-size: .76rem; text-transform: uppercase; letter-spacing: .09em; color: #526075; }
+  .example-grid pre { margin: 0; border: 0; border-radius: 0; max-height: 490px; }
+  .example-grid .note { padding: 12px 14px; border-top: 1px solid var(--line); color: #5a697c; font-size: .83rem; background: #fbfcfe; }
+  .anno pre { font-size: .77rem; line-height: 1.45; }
+  .anno .cmd { color: #8ec5ff; }
+  .anno .out { color: #dce7f4; }
+  .anno .cmt { color: #75d79b; }
+  .anno .warn { color: #ff8d84; }
+
+  ul, ol { padding-left: 24px; }
+  li { margin: 5px 0; }
+  .small { font-size: .83rem; color: var(--muted); }
+  footer { border-top: 1px solid var(--line); padding: 26px 0 0; color: var(--muted); font-size: .84rem; }
+
+  @media (max-width: 940px) {
+    .lab-main, .example-grid { grid-template-columns: 1fr; }
+    .grid.two, .grid.three, .grid.five { grid-template-columns: 1fr; }
+    .toc ol { columns: 1; }
+    .stack-row { grid-template-columns: 86px 92px minmax(0,1fr); }
+    .stack-row .tags { grid-column: 2 / 4; text-align: left; margin-top: -4px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">C · 32-bit x86 assembly · GDB evidence</div>
+    <h1>How C creates, calls, and reads the stack</h1>
+    <p class="lede">
+      A step-by-step tour of local variables, function calls, arguments, and arrays.
+      Every address and value below is taken from real GDB output on the lab VM; the
+      interactive diagram is built from those GDB memory dumps, not from a made-up stack.
+    </p>
+    <div class="badges">
+      <span class="badge"><span class="dot"></span>Actual GDB traces</span>
+      <span class="badge blue"><span class="dot"></span>32-bit x86 cdecl</span>
+      <span class="badge amber"><span class="dot"></span>High memory at top</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="toc" aria-label="Contents">
+    <strong>What is on this page</strong>
+    <ol>
+      <li><a href="#mental-model">Mental model: EIP, ESP, EBP</a></li>
+      <li><a href="#reading">How the stack is read</a></li>
+      <li><a href="#interactive">Interactive stack walkthrough</a></li>
+      <li><a href="#vars">Example 1 — variable declaration</a></li>
+      <li><a href="#call">Example 2 — calling a method</a></li>
+      <li><a href="#args">Reading arguments inside a method</a></li>
+      <li><a href="#array">Example 3 — arrays</a></li>
+      <li><a href="#gdb-commands">Useful GDB commands</a></li>
+    </ol>
+  </nav>
+
+  <!-- ============================================================ -->
+  <section id="mental-model">
+    <h2><span class="num">0</span>The mental model</h2>
+    <p class="section-intro">
+      The stack is ordinary memory. It is not magic and it is not a register. The CPU
+      reads and writes it exactly like any other memory, using addresses held in
+      <code>ESP</code>, <code>EBP</code>, or calculated from them.
+    </p>
+
+    <div class="grid three">
+      <div class="card stat">
+        <div class="label">EIP</div>
+        <div class="value">next instruction</div>
+        <div class="hint">Points into executable code. EIP is a register, not a stack value. A return address is stored on the stack and later loaded into EIP by <code>ret</code>.</div>
+      </div>
+      <div class="card stat">
+        <div class="label">ESP</div>
+        <div class="value">top of stack</div>
+        <div class="hint">Holds the lowest address currently used by the active stack. <code>push</code> makes ESP smaller; <code>pop</code> makes ESP larger.</div>
+      </div>
+      <div class="card stat">
+        <div class="label">EBP</div>
+        <div class="value">frame base</div>
+        <div class="hint">A stable reference point for the current function. Locals are at negative offsets; arguments and the return address are at positive offsets.</div>
+      </div>
+    </div>
+
+    <div class="callout purple">
+      <strong>Memory direction, in one sentence</strong>
+      On x86 the stack grows <strong>downward</strong>: a <code>push</code> subtracts 4 from ESP and writes at the new, lower address. When we draw a stack, higher addresses are usually at the top and lower addresses at the bottom.
+    </div>
+
+    <div class="grid two">
+      <div class="card">
+        <h3 style="margin-top:0">The classic frame layout</h3>
+        <pre style="margin-bottom:0">higher addresses
++----------------------+
+| caller's frame       |
++----------------------+
+| argument y           |  [EBP+12]
++----------------------+
+| argument x           |  [EBP+8]
++----------------------+
+| saved EIP / return   |  [EBP+4]   &lt;-- ret reads this
++----------------------+
+| saved EBP            |  [EBP]     &lt;-- EBP points here
++----------------------+
+| local variables      |  [EBP-4], [EBP-8], ...
++----------------------+
+| ESP -&gt; top of stack  |  lowest active address
++----------------------+
+lower addresses</pre>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">The four instructions that matter</h3>
+        <pre style="margin-bottom:0"><span class="y">push x</span>    ESP = ESP - 4
+         [ESP] = x
+
+<span class="y">pop reg</span>  reg = [ESP]
+         ESP = ESP + 4
+
+<span class="y">call f</span>   ESP = ESP - 4
+         [ESP] = return address
+         EIP = f
+
+<span class="y">ret</span>      EIP = [ESP]
+         ESP = ESP + 4
+
+<span class="y">leave</span>    ESP = EBP
+         EBP = [ESP]
+         ESP = ESP + 4</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="reading">
+    <h2><span class="num">1</span>How the stack is read</h2>
+    <p class="section-intro">
+      This is the part that usually causes confusion: most stack reads do <strong>not</strong>
+      change ESP. An instruction such as <code>mov edx, [ebp-4]</code> simply computes an
+      address and reads 4 bytes. Only instructions such as <code>pop</code>, <code>ret</code>,
+      and <code>leave</code> move ESP as part of the read.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Operation</th><th>Changes ESP?</th><th>What actually happens</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">mov edx, [ebp-4]</td>
+            <td class="bad">No</td>
+            <td>Read 4 bytes at address EBP-4 into EDX. This is how a local variable is read.</td>
+          </tr>
+          <tr>
+            <td class="mono">mov eax, [ebp+8]</td>
+            <td class="bad">No</td>
+            <td>Read 4 bytes at address EBP+8. This is how a function argument is read.</td>
+          </tr>
+          <tr>
+            <td class="mono">mov [ebp-4], eax</td>
+            <td class="bad">No</td>
+            <td>Write EAX to memory at EBP-4. This is how a local variable is stored.</td>
+          </tr>
+          <tr>
+            <td class="mono">push eax</td>
+            <td class="good">ESP -= 4</td>
+            <td>Write EAX at the new ESP. The stack grows downward.</td>
+          </tr>
+          <tr>
+            <td class="mono">pop eax</td>
+            <td class="good">ESP += 4</td>
+            <td>Read the word at ESP into EAX, then move ESP up.</td>
+          </tr>
+          <tr>
+            <td class="mono">call add</td>
+            <td class="good">ESP -= 4</td>
+            <td>Push the return address (the instruction after <code>call</code>), then jump to <code>add</code>.</td>
+          </tr>
+          <tr>
+            <td class="mono">ret</td>
+            <td class="good">ESP += 4</td>
+            <td>Read the return address at ESP into EIP, then move ESP up.</td>
+          </tr>
+          <tr>
+            <td class="mono">leave</td>
+            <td class="good">ESP = EBP, then += 4</td>
+            <td>Throw away locals: set ESP=EBP, pop the saved EBP, leaving ESP pointing at the saved EIP.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Direct GDB proof: bytes, words, and little-endian</h3>
+    <p>
+      In the <code>vars</code> program below, after <code>a=7</code> and <code>b=3</code>
+      have been stored, GDB prints the raw bytes starting at <code>&amp;b</code>:
+    </p>
+
+    <div class="file-label">GDB — x/8bx &amp;b (from gdb_vars.txt)</div>
+    <pre><span class="c"># command:</span>
+(gdb) x/8bx &amp;b
+<span class="g">0xffffdc40:</span>  0x03  0x00  0x00  0x00  <span class="y">0x07  0x00  0x00  0x00</span>
+             <span class="c">└──── b = 3 ────┘</span>  <span class="c">└──── a = 7 ────┘</span>
+
+<span class="c"># 4 bytes are read as one 32-bit int. x86 is little-endian:
+# 03 00 00 00  =  0x00000003
+# 07 00 00 00  =  0x00000007</span></pre>
+
+    <div class="callout info">
+      <strong>Reading does not consume</strong>
+      The word at <code>&amp;a</code> is still on the stack after you read it. A <code>mov</code>
+      read copies the value into a register; it does not remove it from memory. The stack
+      only “moves” when an instruction explicitly changes ESP.
+    </div>
+
+    <h3>The exact GDB line-by-line interpretation</h3>
+    <p>
+      Here is a real GDB step from <code>gdb_vars.txt</code>. Every line of the GDB output
+      shown is followed by a comment explaining exactly what it means.
+    </p>
+
+    <div class="file-label">Annotated GDB transcript — vars, after b=3</div>
+    <pre><span class="cmd">### STEP vars: after b=3 has been stored</span>
+<span class="out">EIP = 0x08049166   ESP = 0xffffdc40   EBP = 0xffffdc48   EAX = 0xf7fbeae8</span>
+<span class="cmt"># EIP: next instruction to execute (0x08049166 = the load of a).
+# ESP: current top of stack = 0xffffdc40.
+# EBP: current frame base = 0xffffdc48.
+# EAX: leftover value from the C runtime; not used by this statement.</span>
+
+<span class="cmd">--- memory from ebp-0x30 (20 words) ---</span>
+<span class="out">0xffffdc18: 0x00000000 0x080491bb 0x00000001 0xffffdcf4</span>
+<span class="cmt"># addresses 0xffffdc18..0xffffdc27: below ESP, stale/unrelated stack data.</span>
+<span class="out">0xffffdc28: 0xffffdcfc 0xcc04918d 0xf7fe3230 0x00000000</span>
+<span class="cmt"># still below ESP; GDB can read it, but it is not part of the current active frame.</span>
+<span class="out">0xffffdc38: 0x00000000 0x00000000 0x00000003 0x00000007</span>
+<span class="cmt"># 0xffffdc40 = b = 3; 0xffffdc44 = a = 7. Both are live locals.</span>
+<span class="out">0xffffdc48: 0x00000000 0xf7df5e46 0x00000001 0xffffdcf4</span>
+<span class="cmt"># 0xffffdc48 = [EBP] = saved EBP.
+# 0xffffdc4c = [EBP+4] = saved EIP / return address into libc startup.</span>
+<span class="out">0xffffdc58: 0xffffdcfc 0xffffdc84 0xffffdc94 0xf7ffdb40</span>
+<span class="cmt"># words above the saved return address: caller's stack data.</span>
+
+<span class="cmd">--- memory at esp (top of stack, 6 words) ---</span>
+<span class="out">0xffffdc40: 0x00000003 0x00000007 0x00000000 0xf7df5e46</span>
+<span class="cmt"># ESP points at 0xffffdc40: [ESP] = b = 3, [ESP+4] = a = 7.</span>
+<span class="out">0xffffdc50: 0x00000001 0xffffdcf4</span>
+<span class="cmt"># continuing upward from ESP: more of main's caller frame.</span>
+<span class="cmd">### END STEP</span>
+
+<span class="out">$5 = 7</span>              <span class="cmt"># p a        -> a is 7</span>
+<span class="out">$6 = 3</span>              <span class="cmt"># p b        -> b is 3</span>
+<span class="out">$7 = 0xffffdc44</span>     <span class="cmt"># p/x &amp;a      -> address of a = EBP-4</span>
+<span class="out">$8 = 0xffffdc40</span>     <span class="cmt"># p/x &amp;b      -> address of b = EBP-8</span>
+
+<span class="cmd">GDB: bytes at &amp;b (b first, then a at the next higher address)</span>
+<span class="out">0xffffdc40: 0x03 0x00 0x00 0x00 0x07 0x00 0x00 0x00</span>
+<span class="cmt"># b=3 (4 bytes), then a=7 (4 bytes). Little-endian ints are stored
+# least-significant byte first, so 7 becomes 07 00 00 00.</span></pre>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="interactive">
+    <h2><span class="num">2</span>Interactive stack walkthrough</h2>
+    <p class="section-intro">
+      Use the tabs to switch between the three C programs. Use <strong>Next</strong> to move
+      through the exact GDB steps. The memory table is rendered from the actual
+      <code>x/20wx $ebp-0x30</code> / <code>x/6wx $esp</code> output in
+      <code>gdb_vars.txt</code>, <code>gdb_call.txt</code>, and <code>gdb_array.txt</code>.
+      Higher addresses are at the top. Rows below ESP are dimmed because they are no longer
+      part of the active stack.
+    </p>
+
+    <div class="lab">
+      <div class="lab-top">
+        <div class="lab-tabs" id="labTabs" role="tablist"></div>
+        <div class="lab-subtitle" id="labSubtitle"></div>
+      </div>
+
+      <div class="lab-body">
+        <div class="lab-main">
+          <div class="panel">
+            <div class="panel-title">
+              <span>C source</span>
+              <span class="tiny">current line highlighted</span>
+            </div>
+            <div class="src-box" id="labSource"></div>
+            <div class="panel-title" style="border-top:1px solid var(--line)">
+              <span>Compiled assembly</span>
+              <span class="tiny">green = step line · amber = next at EIP</span>
+            </div>
+            <div class="asm-box" id="labAsm"></div>
+          </div>
+
+          <div>
+            <div class="panel">
+              <div class="panel-title">
+                <span>Registers at this GDB step</span>
+                <span class="tiny">copied from GDB</span>
+              </div>
+              <div class="reg-grid" id="labRegs"></div>
+              <div class="step-note" id="labNote"></div>
+            </div>
+
+            <div class="lab-controls">
+              <button class="btn" id="prevBtn" type="button">← Back</button>
+              <button class="btn primary" id="nextBtn" type="button">Next →</button>
+              <button class="btn" id="resetBtn" type="button">Reset</button>
+              <span class="step-count" id="stepCount"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stack-wrap">
+          <div class="stack-title">
+            <span>GDB memory — higher addresses first</span>
+            <span class="tiny" id="stackMeta"></span>
+          </div>
+          <div class="axis">↑ higher memory addresses</div>
+          <div class="stack-table" id="stackTable"></div>
+          <div class="axis low">↓ lower memory addresses — the stack grows this way when values are pushed</div>
+        </div>
+
+        <div class="gdb-extra">
+          <h3>GDB also printed for this step</h3>
+          <pre id="labExtra"></pre>
+        </div>
+
+        <details class="raw">
+          <summary>Show the exact GDB memory lines used by the table above</summary>
+          <pre id="labRawMem"></pre>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="vars">
+    <h2><span class="num">3</span>Example 1 — variable declaration</h2>
+    <p class="section-intro">
+      A local variable in C becomes a fixed offset from EBP. There is no “variable name”
+      left at runtime: the compiler remembers that <code>a</code> lives at <code>EBP-4</code>
+      and turns every use of <code>a</code> into a memory access at that address.
+    </p>
+
+    <div class="example-grid">
+      <div class="card">
+        <h3>vars.c</h3>
+        <pre><span class="c">/* compiled with:
+   gcc -m32 -O0 -g -fno-pie -no-pie \
+       -fno-stack-protector \
+       -fno-asynchronous-unwind-tables \
+       -mpreferred-stack-boundary=2
+*/</span>
+
+int main(void)
+{
+    int a = 7;      <span class="c">// a lives at EBP-4</span>
+    int b = 3;      <span class="c">// b lives at EBP-8</span>
+    return a + b;
+}</pre>
+        <div class="note">
+          GDB proves the offsets: <code>p/x &amp;a</code> → <code>0xffffdc44</code>,
+          <code>p/x &amp;b</code> → <code>0xffffdc40</code>, while
+          <code>EBP = 0xffffdc48</code>. Therefore a is EBP-4 and b is EBP-8.
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Compiled assembly (Intel syntax)</h3>
+        <pre><span class="c">; main prologue</span>
+08049152  push ebp
+08049153  mov  ebp, esp
+08049155  sub  esp, 0x8          <span class="c">; room for a and b</span>
+
+<span class="c">; int a = 7;</span>
+08049158  mov  DWORD PTR [ebp-0x4], 0x7
+
+<span class="c">; int b = 3;</span>
+0804915f  mov  DWORD PTR [ebp-0x8], 0x3
+
+<span class="c">; return a + b;</span>
+08049166  mov  edx, DWORD PTR [ebp-0x4]   <span class="c">; read a</span>
+08049169  mov  eax, DWORD PTR [ebp-0x8]   <span class="c">; read b</span>
+0804916c  add  eax, edx                   <span class="c">; result 10</span>
+0804916e  leave                           <span class="c">; destroy frame</span>
+0804916f  ret                             <span class="c">; return to caller</span></pre>
+      </div>
+    </div>
+
+    <h3>Annotated GDB evidence — a and b are just words in memory</h3>
+    <p>
+      These exact lines are from <a href="gdb_vars.txt">gdb_vars.txt</a>. The comments
+      after each line explain what GDB is showing.
+    </p>
+
+    <div class="file-label">GDB — after a=7 and b=3</div>
+    <pre><span class="cmd">### STEP vars: after b=3 has been stored</span>
+<span class="out">EIP = 0x08049166   ESP = 0xffffdc40   EBP = 0xffffdc48   EAX = 0xf7fbeae8</span>
+<span class="cmt"># EIP: next instruction = load a.
+# ESP: 0xffffdc40 = top of active stack, which is b's address.
+# EBP: 0xffffdc48 = frame base; a/b are below it.</span>
+
+<span class="out">0xffffdc38: 0x00000000 0x00000000 0x00000003 0x00000007</span>
+<span class="cmt"># 0xffffdc40 = b = 3; 0xffffdc44 = a = 7.</span>
+
+<span class="out">0xffffdc48: 0x00000000 0xf7df5e46 0x00000001 0xffffdcf4</span>
+<span class="cmt"># 0xffffdc48 = [EBP] = saved EBP.
+# 0xffffdc4c = [EBP+4] = saved EIP, the return address into libc startup.</span>
+
+<span class="out">$5 = 7</span>              <span class="cmt"># p a       -> 7</span>
+<span class="out">$6 = 3</span>              <span class="cmt"># p b       -> 3</span>
+<span class="out">$7 = 0xffffdc44</span>     <span class="cmt"># p/x &amp;a   -> EBP-4</span>
+<span class="out">$8 = 0xffffdc40</span>     <span class="cmt"># p/x &amp;b   -> EBP-8</span>
+
+<span class="cmd">GDB: bytes at &amp;b (b first, then a at the next higher address)</span>
+<span class="out">0xffffdc40: 0x03 0x00 0x00 0x00 0x07 0x00 0x00 0x00</span>
+<span class="cmt"># b=3 stored little-endian, then a=7 stored little-endian.</span></pre>
+
+    <p class="small">
+      Full traces: <a href="gdb_vars.txt">gdb_vars.txt</a> ·
+      source: <a href="vars.c">vars.c</a> ·
+      assembly: <a href="vars.s">vars.s</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="call">
+    <h2><span class="num">4</span>Example 2 — going to a new method</h2>
+    <p class="section-intro">
+      A function call is a jump plus bookkeeping. The caller pushes arguments, then
+      <code>call</code> pushes the return address. The callee creates its own EBP frame.
+      The old frame is not destroyed; it remains above the new one.
+    </p>
+
+    <div class="example-grid">
+      <div class="card">
+        <h3>call.c</h3>
+        <pre>int add(int x, int y)
+{
+    int sum = x + y;    <span class="c">// x at EBP+8, y at EBP+12</span>
+    return sum;
+}
+
+int main(void)
+{
+    int a = 7;
+    int b = 3;
+    int result = add(a, b);
+    return result;
+}</pre>
+        <div class="note">
+          GDB inside <code>add</code>: <code>EBP = 0xffffdc2c</code>,
+          <code>&amp;x = 0xffffdc34</code> (EBP+8),
+          <code>&amp;y = 0xffffdc38</code> (EBP+12),
+          and <code>[EBP+4] = 0x08049187</code> (the return address pushed by
+          <code>call add</code>).
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Assembly (Intel syntax)</h3>
+        <pre><span class="c">; add()</span>
+08049152  push ebp
+08049153  mov  ebp, esp
+08049155  sub  esp, 0x4
+08049158  mov  edx, DWORD PTR [ebp+0x8]   <span class="c">; x</span>
+0804915b  mov  eax, DWORD PTR [ebp+0xc]   <span class="c">; y</span>
+0804915e  add  eax, edx
+08049160  mov  DWORD PTR [ebp-0x4], eax   <span class="c">; sum</span>
+08049163  mov  eax, DWORD PTR [ebp-0x4]
+08049166  leave
+08049167  ret
+
+<span class="c">; main()</span>
+08049168  push ebp
+08049169  mov  ebp, esp
+0804916b  sub  esp, 0xc
+0804916e  mov  DWORD PTR [ebp-0x4], 0x7   <span class="c">; a</span>
+08049175  mov  DWORD PTR [ebp-0x8], 0x3   <span class="c">; b</span>
+0804917c  push DWORD PTR [ebp-0x8]       <span class="c">; push b first</span>
+0804917f  push DWORD PTR [ebp-0x4]       <span class="c">; push a second</span>
+08049182  call 8049152 &lt;add&gt;             <span class="c">; push return + jump</span>
+08049187  add  esp, 0x8                   <span class="c">; caller cleans args</span>
+0804918a  mov  DWORD PTR [ebp-0xc], eax   <span class="c">; result = return</span></pre>
+      </div>
+    </div>
+
+    <h3>Annotated GDB evidence — inside add, reading x and y</h3>
+    <p>
+      The important line is <code>mov edx,[ebp+8]</code>. It reads 4 bytes at the address
+      EBP+8. It does <strong>not</strong> pop anything. GDB confirms the address and value:
+    </p>
+
+    <div class="file-label">GDB — add after its prologue (from gdb_call.txt)</div>
+    <pre><span class="cmd">### STEP call: add after prologue, ready to read x and y</span>
+<span class="out">EIP = 0x08049158   ESP = 0xffffdc28   EBP = 0xffffdc2c   EAX = 0xf7fbeae8   EDX = 0xffffdc84</span>
+<span class="cmt"># EIP: next instruction = mov edx,[ebp+8].
+# ESP: 0xffffdc28 = add's local sum slot (EBP-4).
+# EBP: 0xffffdc2c = add's new frame base.</span>
+
+<span class="out">0xffffdc2c: 0xffffdc48 0x08049187 0x00000007 0x00000003</span>
+<span class="cmt"># 0xffffdc2c = [EBP] = saved EBP from main (0xffffdc48).
+# 0xffffdc30 = [EBP+4] = saved EIP / return address 0x08049187.
+# 0xffffdc34 = [EBP+8] = x = 7.
+# 0xffffdc38 = [EBP+12] = y = 3.</span>
+
+<span class="out">$19 = 0xffffdc34</span>     <span class="cmt"># p/x &amp;x   -> EBP+8</span>
+<span class="out">$20 = 0xffffdc38</span>     <span class="cmt"># p/x &amp;y   -> EBP+12</span>
+<span class="out">$21 = 0x8049187</span>     <span class="cmt"># [EBP+4]  -> return address into main</span>
+<span class="out">$22 = 0x7</span>            <span class="cmt"># x        -> 7</span>
+<span class="out">$23 = 0x3</span>            <span class="cmt"># y        -> 3</span>
+
+<span class="cmd">GDB: raw bytes at [ebp+8]: first x, then y (little-endian)</span>
+<span class="out">0xffffdc34: 0x07 0x00 0x00 0x00 0x03 0x00 0x00 0x00</span>
+<span class="cmt"># x=7 (4 bytes), then y=3 (4 bytes). Arguments are ordinary stack memory.</span>
+
+<span class="cmd">### STEP call: after mov edx,[ebp+8] -- x read into EDX</span>
+<span class="out">EIP = 0x0804915b   ESP = 0xffffdc28   EBP = 0xffffdc2c   EAX = 0xf7fbeae8   EDX = 0x00000007</span>
+<span class="cmt"># EDX became 7. ESP is still 0xffffdc28, so reading x did not move the stack.</span></pre>
+
+    <p class="small">
+      Full trace: <a href="gdb_call.txt">gdb_call.txt</a> ·
+      source: <a href="call.c">call.c</a> ·
+      assembly: <a href="call.s">call.s</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="args">
+    <h2><span class="num">5</span>Reading values from arguments inside a method</h2>
+    <p class="section-intro">
+      In 32-bit cdecl, arguments are pushed right-to-left. The <code>call</code> instruction
+      then pushes exactly 4 bytes: the return address. The callee's prologue pushes the old
+      EBP (another 4 bytes), so the first argument ends up at <code>[EBP+8]</code>.
+    </p>
+
+    <div class="callout info">
+      <strong>The offset formula</strong>
+      <code>argument 1 = [EBP+8]</code>, <code>argument 2 = [EBP+12]</code>,
+      <code>argument 3 = [EBP+16]</code>. The 8-byte gap is: 4 bytes for the saved EBP and
+      4 bytes for the saved return address. On 32-bit x86 the return address is 4 bytes, so
+      the formula is <code>4 (saved EBP) + 4 (return address) = 8</code>.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Address</th><th>GDB value in the add frame</th><th>Meaning</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">0xffffdc2c</td><td class="mono">0xffffdc48</td><td><code>[EBP]</code> — saved EBP from main</td></tr>
+          <tr><td class="mono">0xffffdc30</td><td class="mono">0x08049187</td><td><code>[EBP+4]</code> — return address into main</td></tr>
+          <tr><td class="mono">0xffffdc34</td><td class="mono">0x00000007</td><td><code>[EBP+8]</code> — argument x</td></tr>
+          <tr><td class="mono">0xffffdc38</td><td class="mono">0x00000003</td><td><code>[EBP+12]</code> — argument y</td></tr>
+          <tr><td class="mono">0xffffdc28</td><td class="mono">0x0000000a</td><td><code>[EBP-4]</code> — local sum after the add</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Reading an argument, step by step</h3>
+    <ol>
+      <li>The caller executes <code>push b</code>, so ESP becomes lower and <code>[ESP]=3</code>.</li>
+      <li>The caller executes <code>push a</code>, so ESP becomes lower again and <code>[ESP]=7</code>.</li>
+      <li><code>call add</code> pushes the return address <code>0x08049187</code> at the new ESP.</li>
+      <li><code>add</code>'s prologue pushes the old EBP and sets <code>EBP=ESP</code>.</li>
+      <li>Now <code>x = [EBP+8]</code> and <code>y = [EBP+12]</code>, as confirmed by GDB.</li>
+      <li><code>mov edx,[EBP+8]</code> reads x into EDX. ESP does not change.</li>
+      <li><code>mov eax,[EBP+12]</code> reads y into EAX. ESP still does not change.</li>
+    </ol>
+
+    <div class="callout success">
+      <strong>Why the stack does not “run out” when you read</strong>
+      The return address and arguments stay in place until the caller explicitly removes
+      them. In this program the cleanup is <code>add esp,8</code> after <code>add</code>
+      returns. Even then, the old words remain in memory; ESP simply moves above them.
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="array">
+    <h2><span class="num">6</span>Example 3 — how an array is made and read</h2>
+    <p class="section-intro">
+      A local array is not a pointer variable. It is a contiguous block of bytes inside the
+      current frame. The compiler reserves space in the prologue and turns
+      <code>arr[i]</code> into an address calculation: <code>base + i * sizeof(element)</code>.
+    </p>
+
+    <div class="example-grid">
+      <div class="card">
+        <h3>array.c</h3>
+        <pre>int main(void)
+{
+    int arr[3] = {10, 20, 30};
+    int i = 1;
+    int pick = arr[i];
+    return pick;
+}</pre>
+        <div class="note">
+          GDB inside main: <code>EBP = 0xffffdc48</code>.
+          <code>&amp;arr[0]=0xffffdc34</code>, <code>&amp;arr[1]=0xffffdc38</code>,
+          <code>&amp;arr[2]=0xffffdc3c</code>. The array is 12 bytes: three consecutive
+          4-byte words.
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Assembly (Intel syntax)</h3>
+        <pre><span class="c">; main prologue</span>
+08049152  push ebp
+08049153  mov  ebp, esp
+08049155  sub  esp, 0x14               <span class="c">; 20 bytes of locals</span>
+
+<span class="c">; int arr[3] = {10,20,30};</span>
+08049158  mov  DWORD PTR [ebp-0x14], 0xa   <span class="c">; arr[0]</span>
+0804915f  mov  DWORD PTR [ebp-0x10], 0x14  <span class="c">; arr[1]</span>
+08049166  mov  DWORD PTR [ebp-0xc],  0x1e  <span class="c">; arr[2]</span>
+
+<span class="c">; int i = 1;</span>
+0804916d  mov  DWORD PTR [ebp-0x4], 0x1    <span class="c">; i</span>
+
+<span class="c">; int pick = arr[i];</span>
+08049174  mov  eax, DWORD PTR [ebp-0x4]         <span class="c">; EAX = i</span>
+08049177  mov  eax, DWORD PTR [ebp+eax*4-0x14]  <span class="c">; EAX = arr[i]</span>
+0804917b  mov  DWORD PTR [ebp-0x8], eax         <span class="c">; pick = EAX</span>
+
+<span class="c">; return pick;</span>
+0804917e  mov  eax, DWORD PTR [ebp-0x8]
+08049181  leave
+08049182  ret</pre>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <strong>The array-index formula from the actual instruction</strong>
+      <code>mov eax,DWORD PTR [ebp+eax*4-0x14]</code> means:
+      address = <code>EBP + (index × 4) - 0x14</code>.
+      With <code>EBP=0xffffdc48</code> and <code>index i=1</code>:
+      <code>0xffffdc48 + 4 - 0x14 = 0xffffdc38</code>. That is exactly
+      <code>&amp;arr[1]</code> in the GDB output.
+    </div>
+
+    <h3>Annotated GDB evidence — the array is just three words</h3>
+    <div class="file-label">GDB — after all three array elements are stored</div>
+    <pre><span class="cmd">### STEP array: after arr[2]=30 is stored -- whole array is in memory</span>
+<span class="out">EIP = 0x0804916d   ESP = 0xffffdc34   EBP = 0xffffdc48   EAX = 0xf7fbeae8   EDX = 0xffffdc84</span>
+<span class="cmt"># EIP: next instruction = store i=1.
+# ESP: 0xffffdc34 = top of stack, which is also &amp;arr[0].
+# EBP: 0xffffdc48 = main's frame base.</span>
+
+<span class="out">0xffffdc34: 0x0000000a 0x00000014 0x0000001e 0xf7fbc000</span>
+<span class="cmt"># 0xffffdc34 = arr[0] = 10.
+# 0xffffdc38 = arr[1] = 20.
+# 0xffffdc3c = arr[2] = 30.
+# 0xffffdc40 is unrelated/future local space at this moment.</span>
+
+<span class="out">$16 = 0xffffdc34</span>   <span class="cmt"># p/x &amp;arr[0]</span>
+<span class="out">$17 = 0xffffdc38</span>   <span class="cmt"># p/x &amp;arr[1]  -> exactly 4 bytes higher</span>
+<span class="out">$18 = 0xffffdc3c</span>   <span class="cmt"># p/x &amp;arr[2]  -> exactly 8 bytes above arr[0]</span>
+
+<span class="cmd">GDB: the same 12 bytes, one byte at a time (little-endian ints)</span>
+<span class="out">0xffffdc34: 0x0a 0x00 0x00 0x00 0x14 0x00 0x00 0x00 0x1e 0x00 0x00 0x00</span>
+<span class="cmt"># 10, 20, 30 as little-endian 32-bit integers.</span></pre>
+
+    <div class="file-label">GDB — the actual indexed read arr[i]</div>
+    <pre><span class="cmd">### STEP array: after mov eax,[ebp+eax*4-0x14] -- arr[i] read from memory</span>
+<span class="out">EIP = 0x0804917b   ESP = 0xffffdc34   EBP = 0xffffdc48   EAX = 0x00000014   EDX = 0xffffdc84</span>
+<span class="cmt"># EIP: next instruction = store EAX into pick.
+# EAX: 0x14 = 20, because arr[1] was read.
+# ESP: unchanged at 0xffffdc34. Reading arr[i] did not pop anything.</span>
+
+<span class="out">$23 = 0x14</span>         <span class="cmt"># p/x $eax -> the loaded value is 20</span>
+<span class="out">GDB: address of arr[i], computed from the actual index i</span>
+<span class="out">$24 = 0xffffdc38</span>   <span class="cmt"># p/x &amp;arr[i] -> &amp;arr[1]</span>
+<span class="out">$25 = 0xffffdc38</span>   <span class="cmt"># p/x $ebp + i*4 - 0x14 -> same address</span>
+
+<span class="cmd">### STEP array: after pick=arr[i] is stored at [ebp-8]</span>
+<span class="out">$26 = 20</span>           <span class="cmt"># p pick -> 20</span>
+<span class="out">$27 = 0xffffdc40</span>   <span class="cmt"># p/x &amp;pick -> EBP-8</span>
+<span class="out">$28 = 0x14</span>         <span class="cmt"># [EBP-8] -> 0x14 = 20</span></pre>
+
+    <p class="small">
+      Full trace: <a href="gdb_array.txt">gdb_array.txt</a> ·
+      source: <a href="array.c">array.c</a> ·
+      assembly: <a href="array.s">array.s</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="gdb-commands">
+    <h2><span class="num">7</span>Useful GDB commands</h2>
+    <p class="section-intro">
+      These are the commands used to collect the traces on this page. The examples show
+      exactly what to type and what kind of output to expect.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Command</th><th>What it does</th><th>Example / output</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">gdb -q ./vars_dbg</td>
+            <td>Start GDB on a program compiled with <code>-g</code>.</td>
+            <td class="mono">(gdb) prompt appears</td>
+          </tr>
+          <tr>
+            <td class="mono">set disassembly-flavor intel</td>
+            <td>Show Intel syntax instead of AT&amp;T syntax.</td>
+            <td class="mono">mov eax, DWORD PTR [ebp-0x4]</td>
+          </tr>
+          <tr>
+            <td class="mono">break main</td>
+            <td>Stop when entering <code>main</code>.</td>
+            <td class="mono">Breakpoint 1 at 0x8049152</td>
+          </tr>
+          <tr>
+            <td class="mono">break *0x08049158</td>
+            <td>Stop at an exact instruction address.</td>
+            <td class="mono">Breakpoint at 0x8049158</td>
+          </tr>
+          <tr>
+            <td class="mono">run</td>
+            <td>Start or restart the program.</td>
+            <td class="mono">Starting program: /tmp/vars_dbg</td>
+          </tr>
+          <tr>
+            <td class="mono">continue<br>c</td>
+            <td>Run until the next breakpoint.</td>
+            <td class="mono">Continuing.</td>
+          </tr>
+          <tr>
+            <td class="mono">stepi<br>si</td>
+            <td>Execute exactly one machine instruction, stepping into calls.</td>
+            <td class="mono">0x08049155 in main ()</td>
+          </tr>
+          <tr>
+            <td class="mono">nexti<br>ni</td>
+            <td>Execute one machine instruction, stepping over calls.</td>
+            <td class="mono">0x08049158 in main ()</td>
+          </tr>
+          <tr>
+            <td class="mono">info registers eip esp ebp eax edx</td>
+            <td>Show the current register values.</td>
+            <td class="mono">eip 0x8049158<br>esp 0xffffdc40<br>ebp 0xffffdc48</td>
+          </tr>
+          <tr>
+            <td class="mono">p/x $ebp<br>p/x $esp</td>
+            <td>Print a register in hexadecimal.</td>
+            <td class="mono">$1 = 0xffffdc48</td>
+          </tr>
+          <tr>
+            <td class="mono">p a<br>p/x &amp;a</td>
+            <td>Print a C variable or its address (needs <code>-g</code>).</td>
+            <td class="mono">$5 = 7<br>$7 = 0xffffdc44</td>
+          </tr>
+          <tr>
+            <td class="mono">x/20wx $ebp-0x30</td>
+            <td>Examine 20 words (4 bytes each) in hex, starting below EBP.</td>
+            <td class="mono">0xffffdc38: 0x00000000 0x00000003 ...</td>
+          </tr>
+          <tr>
+            <td class="mono">x/8bx &amp;b</td>
+            <td>Examine 8 individual bytes in hex. Best for seeing little-endian layout.</td>
+            <td class="mono">0xffffdc40: 0x03 0x00 0x00 0x00 ...</td>
+          </tr>
+          <tr>
+            <td class="mono">x/4wx &amp;arr[0]</td>
+            <td>Examine four words starting at the array base.</td>
+            <td class="mono">0xffffdc34: 0x0000000a 0x00000014 ...</td>
+          </tr>
+          <tr>
+            <td class="mono">x/i $eip</td>
+            <td>Disassemble the instruction at EIP.</td>
+            <td class="mono">=&gt; 0x8049158 &lt;main+6&gt;: mov DWORD PTR [ebp-0x4],0x7</td>
+          </tr>
+          <tr>
+            <td class="mono">disassemble main</td>
+            <td>Show the machine code for a function.</td>
+            <td class="mono">Dump of assembler code for function main:</td>
+          </tr>
+          <tr>
+            <td class="mono">layout asm<br>layout regs</td>
+            <td>Open GDB's TUI assembly/register panes.</td>
+            <td class="mono">Ctrl+x, a toggles the TUI</td>
+          </tr>
+          <tr>
+            <td class="mono">backtrace<br>bt</td>
+            <td>Show the call stack: current function and callers.</td>
+            <td class="mono">#0 add (x=7, y=3) at call.c:3</td>
+          </tr>
+          <tr>
+            <td class="mono">info frame</td>
+            <td>Show EBP, saved EIP, and the current frame's saved registers.</td>
+            <td class="mono">saved eip = 0x8049187</td>
+          </tr>
+          <tr>
+            <td class="mono">finish</td>
+            <td>Run until the current function returns.</td>
+            <td class="mono">Value returned is $1 = 10</td>
+          </tr>
+          <tr>
+            <td class="mono">until</td>
+            <td>Run until a line or address is reached.</td>
+            <td class="mono">(gdb) until</td>
+          </tr>
+          <tr>
+            <td class="mono">watch a</td>
+            <td>Stop whenever the variable <code>a</code> changes.</td>
+            <td class="mono">Hardware watchpoint 2: a</td>
+          </tr>
+          <tr>
+            <td class="mono">display/i $eip</td>
+            <td>Show the next instruction automatically after every stop.</td>
+            <td class="mono">1: x/i $eip</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout success">
+      <strong>The shortest useful recipe</strong>
+      Compile with <code>-g -O0 -m32</code>. In GDB:
+      <code>break main</code>, <code>run</code>, <code>layout asm</code>,
+      <code>layout regs</code>, then use <code>si</code> and watch
+      <code>esp</code>, <code>ebp</code>, and <code>eip</code> change.
+      Add <code>x/20wx $ebp-0x30</code> whenever you want to see the actual memory.
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      Evidence files in this folder:
+      <a href="gdb_vars.txt">gdb_vars.txt</a> ·
+      <a href="gdb_call.txt">gdb_call.txt</a> ·
+      <a href="gdb_array.txt">gdb_array.txt</a> ·
+      <a href="vars.c">vars.c</a> ·
+      <a href="call.c">call.c</a> ·
+      <a href="array.c">array.c</a> ·
+      <a href="vars.s">vars.s</a> ·
+      <a href="call.s">call.s</a> ·
+      <a href="array.s">array.s</a>.
+    </p>
+    <p>
+      All stack addresses and values on this page come from GDB on the lab VM.
+      Compiler options: <code>gcc -m32 -O0 -g -fno-pie -no-pie
+      -fno-stack-protector -fno-asynchronous-unwind-tables
+      -mpreferred-stack-boundary=2</code>.
+    </p>
+  </footer>
+</main>
+
+<script src="steps.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  const DATA = window.STACK_DATA;
+  const keys = Object.keys(DATA);
+  let key = keys[0];
+  let index = 0;
+
+  const el = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+
+  function hex8(n) {
+    return "0x" + (n >>> 0).toString(16).padStart(8, "0");
+  }
+  function hexAuto(n) {
+    return "0x" + (n >>> 0).toString(16);
+  }
+  function parseHex(s) {
+    return parseInt(s, 16) >>> 0;
+  }
+  function decIfSmall(n) {
+    return n <= 999 && n >= 0 ? '<span class="dec">' + n + "</span>" : "";
+  }
+
+  function renderTabs() {
+    el("labTabs").innerHTML = keys.map((k) =>
+      `<button type="button" class="lab-tab${k === key ? " active" : ""}" data-key="${k}">${esc(DATA[k].title)}</button>`
+    ).join("");
+    el("labTabs").querySelectorAll("button").forEach((b) => {
+      b.addEventListener("click", () => {
+        key = b.dataset.key;
+        index = 0;
+        render();
+      });
+    });
+  }
+
+  function labelFor(addr, st, ebp, esp) {
+    const eOff = String(addr - ebp);
+    const sOff = String(addr - esp);
+    const parts = [];
+    if (st.frameLabels && st.frameLabels[eOff]) parts.push(st.frameLabels[eOff]);
+    if (st.espLabels && st.espLabels[sOff]) parts.push(st.espLabels[sOff]);
+    if (!parts.length) {
+      if (addr < esp) parts.push("below ESP — stale / not part of the active stack");
+      else if (addr > ebp + 4) parts.push("caller's stack data");
+      else parts.push("stack word");
+    }
+    return parts.join(" · ");
+  }
+
+  function renderRegs(st) {
+    const regs = [
+      ["EIP", st.eip, "address of the next instruction in code", "eip"],
+      ["ESP", st.esp, "top of the active stack (lowest active address)", "esp"],
+      ["EBP", st.ebp, "base of the current frame", "ebp"],
+      ["EAX", st.eax, "temporary / return value", ""],
+      ["EDX", st.edx || "—", "temporary register", ""]
+    ];
+    el("labRegs").innerHTML = regs.map(([n, v, why, cls]) =>
+      `<div class="reg ${cls}"><div class="name">${n}</div><div class="v">${esc(v)}</div><div class="why">${esc(why)}</div></div>`
+    ).join("");
+  }
+
+  function renderStack(st) {
+    const ebp = parseHex(st.ebp);
+    const esp = parseHex(st.esp);
+    const eipSlot = ebp + 4;
+    const rows = st.mem.slice().sort((a, b) => b.addr - a.addr);
+    el("stackMeta").textContent = `EBP ${st.ebp} · ESP ${st.esp}`;
+    el("stackTable").innerHTML = rows.map((w) => {
+      const a = w.addr;
+      const classes = [];
+      const tags = [];
+      if (a === esp) { classes.push("row-esp"); tags.push('<span class="tag esp">ESP</span>'); }
+      if (a === ebp) { classes.push("row-ebp"); tags.push('<span class="tag ebp">EBP</span>'); }
+      if (a === eipSlot) { classes.push("row-eip"); tags.push('<span class="tag eip">saved EIP</span>'); }
+      if (a < esp) { classes.push("stale"); tags.push('<span class="tag stale">below ESP</span>'); }
+      const what = labelFor(a, st, ebp, esp);
+      return `<div class="stack-row ${classes.join(" ")}">
+        <span class="addr">${hex8(a)}</span>
+        <span class="val">${hex8(w.val)}${decIfSmall(w.val)}</span>
+        <span class="what">${esc(what)}</span>
+        <span class="tags">${tags.join("")}</span>
+      </div>`;
+    }).join("");
+  }
+
+  function render() {
+    const ex = DATA[key];
+    const st = ex.steps[index];
+
+    el("labSubtitle").textContent = ex.subtitle;
+
+    el("labSource").innerHTML = ex.source.map((line, i) => {
+      const n = i + 1;
+      return `<div class="src-line${n === st.cLine ? " active" : ""}">
+        <span class="ln">${n}</span><span>${esc(line) || " "}</span>
+      </div>`;
+    }).join("");
+
+    const eipIdx = ex.asm.findIndex((ins) => parseInt(ins[0], 16) === parseHex(st.eip));
+    el("labAsm").innerHTML = ex.asm.map((ins, i) => {
+      const active = i === st.asmLine ? " active" : "";
+      const next = i === eipIdx ? " eip-next" : "";
+      const mark = i === eipIdx ? '<span class="eip-mark">EIP</span>' : "";
+      return `<div class="asm-line${active}${next}">
+        <span class="addr">${esc(ins[0])}</span>
+        <span class="mn">${esc(ins[1])}</span>
+        <span class="op">${esc(ins[2])} <span class="cm">${esc(ins[3] || "")}</span>${mark}</span>
+      </div>`;
+    }).join("");
+
+    renderRegs(st);
+    el("labNote").innerHTML = "<strong>" + esc(st.label) + "</strong><br>" + esc(st.note);
+
+    renderStack(st);
+
+    el("labExtra").textContent = st.extra.length ? st.extra.join("\n") : "(no extra GDB output for this step)";
+    el("labRawMem").textContent = st.memRaw.join("\n");
+
+    el("stepCount").textContent = `Step ${index + 1} / ${ex.steps.length}`;
+    el("prevBtn").disabled = index === 0;
+    el("nextBtn").disabled = index === ex.steps.length - 1;
+  }
+
+  el("prevBtn").addEventListener("click", () => {
+    if (index > 0) { index--; render(); }
+  });
+  el("nextBtn").addEventListener("click", () => {
+    if (index < DATA[key].steps.length - 1) { index++; render(); }
+  });
+  el("resetBtn").addEventListener("click", () => {
+    index = 0;
+    render();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.target && /input|textarea|select/i.test(e.target.tagName)) return;
+    if (e.key === "ArrowLeft") { el("prevBtn").click(); }
+    if (e.key === "ArrowRight") { el("nextBtn").click(); }
+  });
+
+  renderTabs();
+  render();
+})();
+</script>
+</body>
+</html>

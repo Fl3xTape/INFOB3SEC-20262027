@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stack Exploit Lab - All Targets</title>
+<style>
+  :root {
+    --ink:#17202b; --muted:#5b6879; --bg:#f3f6fa; --card:#fff; --line:#d9e1eb;
+    --green:#13713d; --green-bg:#ecfdf3; --blue:#1d5fa7; --blue-bg:#eff6ff;
+    --amber:#8a5a00; --amber-bg:#fffaeb; --purple:#6941c6; --purple-bg:#f4f0ff;
+    --mono:"Cascadia Code",Consolas,"SFMono-Regular","Liberation Mono",monospace;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; color:var(--ink);
+    background:
+      radial-gradient(circle at 12% 0%, #e2ecff 0, transparent 32rem),
+      radial-gradient(circle at 92% 16%, #e7f8ef 0, transparent 28rem),
+      var(--bg);
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.6;
+  }
+  a { color:var(--blue); }
+  code { font-family:var(--mono); }
+  .hero {
+    color:#f8fbff; padding:52px 0 42px;
+    background:
+      radial-gradient(circle at 82% 12%, rgba(80,151,255,.28) 0, transparent 25rem),
+      radial-gradient(circle at 14% 84%, rgba(72,211,146,.14) 0, transparent 20rem),
+      linear-gradient(135deg,#101823 0%,#182a3e 54%,#14332b 100%);
+    border-bottom:1px solid #0a1017;
+  }
+  .wrap { width:min(1080px,calc(100% - 32px)); margin:0 auto; }
+  .eyebrow { color:#7de0a8; text-transform:uppercase; letter-spacing:.17em; font-size:.74rem; font-weight:800; margin-bottom:12px; }
+  h1 { margin:0; font-size:clamp(2rem,4.5vw,3.4rem); line-height:1.05; letter-spacing:-.035em; }
+  .lede { max-width:820px; color:#bdcad9; font-size:1.04rem; margin:18px 0 0; }
+  main { padding:34px 0 60px; }
+  .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+  .card {
+    display:block; text-decoration:none; color:inherit; background:#fff;
+    border:1px solid var(--line); border-radius:16px; padding:20px 22px;
+    box-shadow:0 8px 24px rgba(22,34,51,.05); transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .card:hover { transform:translateY(-2px); box-shadow:0 14px 34px rgba(22,34,51,.11); }
+  .card .top { display:flex; justify-content:space-between; gap:12px; align-items:center; }
+  .card .num { display:inline-grid; place-items:center; width:34px; height:34px; border-radius:10px; background:#18283b; color:#fff; font-weight:800; }
+  .card h2 { font-size:1.08rem; margin:12px 0 4px; letter-spacing:-.01em; }
+  .card p { margin:0; color:var(--muted); font-size:.88rem; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:.7rem; font-weight:800; white-space:nowrap; background:#e8edf5; color:#344257; }
+  .pill.green { background:var(--green-bg); color:var(--green); }
+  .pill.blue { background:var(--blue-bg); color:var(--blue); }
+  .pill.amber { background:var(--amber-bg); color:var(--amber); }
+  .pill.purple { background:var(--purple-bg); color:var(--purple); }
+  .note { margin:24px 0 0; padding:16px 18px; border:1px solid #c7ddf8; background:var(--blue-bg); color:#123f72; border-radius:14px; font-size:.9rem; }
+  footer { margin-top:30px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:.82rem; }
+  @media (max-width:760px) { .grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Stack exploit lab - complete set</div>
+    <h1>All targets in one walkthrough</h1>
+    <p class="lede">
+      Pick a target from the sidebar or from the cards below. Each page starts with an
+      animated stack walkthrough showing ESP, EBP, EIP, and the memory changing step by
+      step. Below it are the C source, annotated assembly, actual GDB evidence, the
+      relevant addresses, and a line-by-line explanation of the Python solution.
+    </p>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="grid">
+    <a class="card" href="t0.html" onclick="gotoTarget(0); return false;">
+      <div class="top"><span class="num">0</span><span class="pill blue">data overwrite</span></div>
+      <h2>Target 0 - overwrite the grade</h2>
+      <p>Use <code>gets(name)</code> to overflow into the adjacent <code>grade</code> array.</p>
+    </a>
+
+    <a class="card" href="t1.html" onclick="gotoTarget(1); return false;">
+      <div class="top"><span class="num">1</span><span class="pill blue">ret2win</span></div>
+      <h2>Target 1 - return to print_good_grade</h2>
+      <p>Overwrite the saved return address with the fixed address <code>0x0804a123</code>.</p>
+    </a>
+
+    <a class="card" href="t2.html" onclick="gotoTarget(2); return false;">
+      <div class="top"><span class="num">2</span><span class="pill green">root shell</span></div>
+      <h2>Target 2 - return to shellcode</h2>
+      <p>Overflow the 100-byte buffer and return to injected shellcode on the executable stack.</p>
+    </a>
+
+    <a class="card" href="t3.html" onclick="gotoTarget(3); return false;">
+      <div class="top"><span class="num">3</span><span class="pill green">root shell</span></div>
+      <h2>Target 3 - write-what-where</h2>
+      <p>Control the uninitialized <code>a</code> and <code>p</code>, then abuse <code>*p = a</code>.</p>
+    </a>
+
+    <a class="card" href="t4.html" onclick="gotoTarget(4); return false;">
+      <div class="top"><span class="num">4</span><span class="pill green">root shell</span></div>
+      <h2>Target 4 - alloca integer overflow</h2>
+      <p>Make <code>alloca(count * 4)</code> wrap to zero, then overflow through the file reader.</p>
+    </a>
+
+    <a class="card" href="t5/index.html" onclick="gotoTarget(5); return false;">
+      <div class="top"><span class="num">5</span><span class="pill amber">DEP / ret2libc</span></div>
+      <h2>Target 5 - DEP and ret2libc</h2>
+      <p>Return into the existing <code>system()</code> function and use <code>"/bin/sh"</code> as its argument.</p>
+    </a>
+
+    <a class="card" href="t6/index.html" onclick="gotoTarget(6); return false;">
+      <div class="top"><span class="num">6</span><span class="pill purple">mini-ASLR</span></div>
+      <h2>Target 6 - NOP sled against MINIASLR</h2>
+      <p>Defeat the 0-255 byte stack shift with a large NOP sled and a fixed return address.</p>
+    </a>
+  </div>
+
+  <div class="note">
+    <strong>Navigation tip:</strong> the left sidebar remains visible while you read.
+    Use it to switch directly between Target 0 and Target 6, or use the cards above.
+  </div>
+
+  <div class="note">
+    <strong>Ready to test yourself?</strong>
+    <a href="quiz.html" onclick="if (window.parent && typeof window.parent.showTarget === 'function') { window.parent.showTarget('quiz'); return false; }">Open the targets 0-6 quiz</a>.
+    It starts with source and disassembly line-selection questions, then moves through
+    target-specific exploits, GDB commands, stack behavior, and data/scope checks.
+  </div>
+
+  <footer>
+    Everything is local and self-contained. The pages load their raw GDB logs, assembly,
+    source files, and Python solutions from this same folder.
+  </footer>
+</main>
+
+<script>
+  function gotoTarget(n) {
+    if (window.parent && window.parent !== window && typeof window.parent.showTarget === "function") {
+      window.parent.showTarget(String(n));
+    } else {
+      window.location.href = (n <= 4 ? "t" + n + ".html" : "t" + n + "/index.html");
+    }
+  }
+</script>
+</body>
+</html>

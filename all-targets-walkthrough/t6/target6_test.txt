@@ -1,0 +1,5 @@
+sol6.py test with the real setuid-root target6
+command: ./target6 "$(python3 sol6.py)"
+input: id; exit
+
+ok=200 fail=0

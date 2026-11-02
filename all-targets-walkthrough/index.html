@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stack Exploit Lab - Targets 0-6</title>
+<style>
+  :root {
+    --ink:#17202b; --muted:#5b6879; --bg:#eef2f7; --card:#fff; --line:#d9e1eb;
+    --green:#13713d; --green-bg:#ecfdf3; --blue:#1d5fa7; --blue-bg:#eff6ff;
+    --amber:#8a5a00; --amber-bg:#fffaeb; --purple:#6941c6; --purple-bg:#f4f0ff;
+    --mono:"Cascadia Code",Consolas,"SFMono-Regular","Liberation Mono",monospace;
+  }
+  * { box-sizing:border-box; }
+  html,body { height:100%; }
+  body {
+    margin:0; color:var(--ink); background:var(--bg);
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+    display:flex; flex-direction:column; height:100vh; overflow:hidden;
+  }
+  a { color:inherit; text-decoration:none; }
+  code { font-family:var(--mono); }
+
+  .shell { display:flex; flex:1; min-height:0; }
+  aside.sidebar {
+    width:286px; flex:0 0 286px; display:flex; flex-direction:column;
+    background:linear-gradient(180deg,#0f1823 0%,#142536 58%,#123026 100%);
+    color:#e8f0f9; border-right:1px solid #0a1017;
+  }
+  .brand { position:relative; padding:22px 20px 16px; border-bottom:1px solid rgba(255,255,255,.09); }
+  .side-hide, .show-nav {
+    appearance:none; cursor:pointer; font:inherit; font-size:.69rem; font-weight:800;
+    border-radius:8px; padding:5px 9px; line-height:1.2;
+  }
+  .side-hide {
+    position:absolute; top:18px; right:14px;
+    border:1px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.08); color:#dce8f5;
+  }
+  .side-hide:hover { background:rgba(255,255,255,.15); }
+  .show-nav {
+    display:none; position:fixed; top:12px; left:12px; z-index:100;
+    border:1px solid #0f1925; background:#18283b; color:#fff;
+    box-shadow:0 5px 18px rgba(0,0,0,.22);
+  }
+  .show-nav:hover { background:#243b55; }
+  body.nav-hidden aside.sidebar { display:none; }
+  body.nav-hidden .show-nav { display:inline-flex; }
+  .brand .kicker { color:#7de0a8; text-transform:uppercase; letter-spacing:.16em; font-size:.66rem; font-weight:800; }
+  .brand h1 { margin:6px 0 0; font-size:1.12rem; line-height:1.2; letter-spacing:-.02em; }
+  .brand p { margin:7px 0 0; color:#aebfd1; font-size:.78rem; line-height:1.45; }
+  .nav-label { padding:15px 20px 7px; color:#8fa5bb; text-transform:uppercase; letter-spacing:.13em; font-size:.65rem; font-weight:800; }
+  nav.target-nav { overflow-y:auto; padding:0 10px 12px; flex:1; }
+  nav.target-nav a {
+    display:block; padding:10px 11px; border-radius:11px; margin:3px 0;
+    color:#dbe7f3; border:1px solid transparent;
+  }
+  nav.target-nav a:hover { background:rgba(255,255,255,.07); }
+  nav.target-nav a.active { background:#7de0a8; color:#10251a; border-color:#7de0a8; }
+  nav.target-nav .row { display:flex; align-items:center; gap:9px; }
+  nav.target-nav .n {
+    display:inline-grid; place-items:center; width:24px; height:24px; flex:0 0 24px;
+    border-radius:7px; background:rgba(255,255,255,.10); font-family:var(--mono);
+    font-size:.76rem; font-weight:800;
+  }
+  nav.target-nav a.active .n { background:rgba(16,37,26,.14); }
+  nav.target-nav .name { font-size:.86rem; font-weight:700; line-height:1.2; }
+  nav.target-nav .tag { display:block; margin-left:33px; margin-top:2px; font-size:.68rem; color:#9eb2c7; line-height:1.25; }
+  nav.target-nav a.active .tag { color:#2c6244; }
+  .side-foot { padding:12px 20px 16px; border-top:1px solid rgba(255,255,255,.09); font-size:.72rem; color:#9eb2c7; }
+  .side-foot a { color:#7de0a8; font-weight:700; }
+  .side-foot a:hover { text-decoration:underline; }
+
+  main.stage { flex:1; min-width:0; background:#fff; display:flex; }
+  iframe#stage {
+    width:100%; height:100%; border:0; background:#fff; display:block;
+  }
+
+  @media (max-width: 800px) {
+    body { overflow:auto; height:auto; min-height:100vh; }
+    .shell { display:block; }
+    aside.sidebar { width:100%; flex:none; }
+    .brand { padding:16px 16px 12px; }
+    .brand p { display:none; }
+    .nav-label { padding:10px 16px 5px; }
+    nav.target-nav { display:flex; gap:7px; overflow-x:auto; padding:0 12px 12px; }
+    nav.target-nav a { flex:0 0 auto; min-width:150px; padding:8px 10px; }
+    nav.target-nav .tag { margin-left:0; }
+    .side-foot { display:none; }
+    main.stage { height:calc(100vh - 170px); min-height:640px; }
+  }
+</style>
+</head>
+<body>
+
+<button id="showNav" class="show-nav" type="button" aria-controls="targetNav" aria-expanded="false">Menu</button>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="kicker">Stack exploit lab</div>
+      <h1>Targets 0-6</h1>
+      <p>One navigation panel for every target walkthrough.</p>
+      <button id="hideNav" class="side-hide" type="button" aria-controls="targetNav" aria-expanded="true">Hide</button>
+    </div>
+
+    <div class="nav-label">Walkthroughs</div>
+    <nav class="target-nav" id="targetNav">
+      <a href="#home" data-target="home">
+        <div class="row"><span class="n">H</span><span class="name">Overview</span></div>
+        <span class="tag">All targets at a glance</span>
+      </a>
+      <a href="#quiz" data-target="quiz">
+        <div class="row"><span class="n">Q</span><span class="name">Quiz</span></div>
+        <span class="tag">Test yourself on targets 0-6</span>
+      </a>
+      <a href="#target0" data-target="0">
+        <div class="row"><span class="n">0</span><span class="name">Target 0</span></div>
+        <span class="tag">Overwrite the grade</span>
+      </a>
+      <a href="#target1" data-target="1">
+        <div class="row"><span class="n">1</span><span class="name">Target 1</span></div>
+        <span class="tag">Return to print_good_grade</span>
+      </a>
+      <a href="#target2" data-target="2">
+        <div class="row"><span class="n">2</span><span class="name">Target 2</span></div>
+        <span class="tag">Return to shellcode</span>
+      </a>
+      <a href="#target3" data-target="3">
+        <div class="row"><span class="n">3</span><span class="name">Target 3</span></div>
+        <span class="tag">Write-what-where</span>
+      </a>
+      <a href="#target4" data-target="4">
+        <div class="row"><span class="n">4</span><span class="name">Target 4</span></div>
+        <span class="tag">Alloca integer overflow</span>
+      </a>
+      <a href="#target5" data-target="5">
+        <div class="row"><span class="n">5</span><span class="name">Target 5</span></div>
+        <span class="tag">DEP and ret2libc</span>
+      </a>
+      <a href="#target6" data-target="6">
+        <div class="row"><span class="n">6</span><span class="name">Target 6</span></div>
+        <span class="tag">MINIASLR and NOP sled</span>
+      </a>
+    </nav>
+
+    <div class="side-foot">
+      <a id="newTab" href="home.html" target="_blank" rel="noopener">Open current target in a new tab -&gt;</a>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <iframe id="stage" src="home.html" title="Target walkthrough"></iframe>
+  </main>
+</div>
+
+<script>
+(function () {
+  const stage = document.getElementById("stage");
+  const nav = document.getElementById("targetNav");
+  const newTab = document.getElementById("newTab");
+  const hideNav = document.getElementById("hideNav");
+  const showNav = document.getElementById("showNav");
+
+  function setNavHidden(hidden) {
+    document.body.classList.toggle("nav-hidden", hidden);
+    hideNav.setAttribute("aria-expanded", String(!hidden));
+    showNav.setAttribute("aria-expanded", String(!hidden));
+    try {
+      localStorage.setItem("stackNavHidden", hidden ? "1" : "0");
+    } catch (e) {
+      /* localStorage is optional */
+    }
+  }
+
+  hideNav.addEventListener("click", () => setNavHidden(true));
+  showNav.addEventListener("click", () => setNavHidden(false));
+
+  try {
+    if (localStorage.getItem("stackNavHidden") === "1") setNavHidden(true);
+  } catch (e) {
+    /* ignore unavailable localStorage */
+  }
+
+  const urls = {
+    home: "home.html",
+    quiz: "quiz.html",
+    0: "t0.html",
+    1: "t1.html",
+    2: "t2.html",
+    3: "t3.html",
+    4: "t4.html",
+    5: "t5/index.html",
+    6: "t6/index.html"
+  };
+
+  function setActive(id) {
+    nav.querySelectorAll("a").forEach((a) => {
+      a.classList.toggle("active", a.dataset.target === String(id));
+    });
+    newTab.href = urls[id] || "home.html";
+  }
+
+  function showTarget(id) {
+    id = String(id);
+    if (!(id in urls)) id = "home";
+
+    stage.src = urls[id];
+    setActive(id);
+    try {
+      const hash = id === "home" ? "#home" : (id === "quiz" ? "#quiz" : "#target" + id);
+      history.replaceState(null, "", hash);
+    } catch (e) {
+      /* file:// in some browsers may disallow replaceState; navigation still works */
+    }
+  }
+
+  nav.querySelectorAll("a").forEach((a) => {
+    a.addEventListener("click", (event) => {
+      event.preventDefault();
+      showTarget(a.dataset.target);
+    });
+  });
+
+  const hash = window.location.hash.replace(/^#/, "");
+  if (hash === "home" || hash === "") showTarget("home");
+  else if (hash === "quiz") showTarget("quiz");
+  else if (/^target[0-6]$/.test(hash)) showTarget(hash.replace("target", ""));
+  else showTarget("home");
+
+  // Allow the cards inside home.html to call the outer navigation.
+  window.showTarget = showTarget;
+})();
+</script>
+</body>
+</html>

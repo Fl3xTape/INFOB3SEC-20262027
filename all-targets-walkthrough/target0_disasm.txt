@@ -1,0 +1,40 @@
+
+target0:     file format elf32-i386
+
+
+Disassembly of section .init:
+
+Disassembly of section .plt:
+
+Disassembly of section .text:
+
+0804a095 <_main>:
+ 804a095:	55                   	push   ebp
+ 804a096:	89 e5                	mov    ebp,esp
+ 804a098:	53                   	push   ebx
+ 804a099:	83 ec 14             	sub    esp,0x14
+ 804a09c:	e8 9f fb ff ff       	call   8049c40 <__x86.get_pc_thunk.bx>
+ 804a0a1:	81 c3 5f df 09 00    	add    ebx,0x9df5f
+ 804a0a7:	8d 45 f3             	lea    eax,[ebp-0xd]
+ 804a0aa:	c7 00 6e 69 6c 00    	mov    DWORD PTR [eax],0x6c696e
+ 804a0b0:	83 ec 0c             	sub    esp,0xc
+ 804a0b3:	8d 45 e9             	lea    eax,[ebp-0x17]
+ 804a0b6:	50                   	push   eax
+ 804a0b7:	e8 24 de 00 00       	call   8057ee0 <_IO_gets>
+ 804a0bc:	83 c4 10             	add    esp,0x10
+ 804a0bf:	83 ec 04             	sub    esp,0x4
+ 804a0c2:	8d 45 f3             	lea    eax,[ebp-0xd]
+ 804a0c5:	50                   	push   eax
+ 804a0c6:	8d 45 e9             	lea    eax,[ebp-0x17]
+ 804a0c9:	50                   	push   eax
+ 804a0ca:	8d 83 7c e0 fc ff    	lea    eax,[ebx-0x31f84]
+ 804a0d0:	50                   	push   eax
+ 804a0d1:	e8 4a 71 00 00       	call   8051220 <_IO_printf>
+ 804a0d6:	83 c4 10             	add    esp,0x10
+ 804a0d9:	83 ec 0c             	sub    esp,0xc
+ 804a0dc:	6a 00                	push   0x0
+ 804a0de:	e8 0d 66 00 00       	call   80506f0 <exit>
+
+Disassembly of section __libc_freeres_fn:
+
+Disassembly of section .fini:

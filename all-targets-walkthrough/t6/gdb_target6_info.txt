@@ -1,0 +1,16 @@
+=== ELF header / stack ===
+  Class:                             ELF32
+  Type:                              EXEC (Executable file)
+  Machine:                           Intel 80386
+  Entry point address:               0x8049b90
+  LOAD           0x000000 0x08048000 0x08048000 0x001f0 0x001f0 R   0x1000
+  LOAD           0x001000 0x08049000 0x08049000 0x6c964 0x6c964 R E 0x1000
+  LOAD           0x06e000 0x080b6000 0x080b6000 0x2ef45 0x2ef45 R   0x1000
+  LOAD           0x09d640 0x080e6640 0x080e6640 0x02c78 0x039b8 RW  0x1000
+  GNU_STACK      0x000000 0x00000000 0x00000000 0x00000 0x00000 RWE 0x10
+=== vulnerable symbol ===
+0804a051 T vulnerable
+=== patched STACK_GOAL ===
+file offset 7465 bytes: 8dbafeff
+STACK_GOAL = 0xfffeba8d
+after -0x80000 = 0xfff6ba8d

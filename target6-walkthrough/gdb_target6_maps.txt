@@ -1,0 +1,13 @@
+Breakpoint 1 at 0x804a06b: file target6.c, line 10.
+
+=== memory map while inside vulnerable() ===
+  08048000-08049000 r--p 00000000 fe:00 2228229                            /tmp/target6_dbg
+  08049000-080b6000 r-xp 00001000 fe:00 2228229                            /tmp/target6_dbg
+  080b6000-080e5000 r--p 0006e000 fe:00 2228229                            /tmp/target6_dbg
+  080e6000-080e8000 r--p 0009d000 fe:00 2228229                            /tmp/target6_dbg
+  080e8000-080ea000 rw-p 0009f000 fe:00 2228229                            /tmp/target6_dbg
+  080ea000-0810c000 rw-p 00000000 00:00 0                                  [heap]
+  fff6b000-ffffe000 rwxp 00000000 00:00 0                                  [stack]
+
+Stack is writable AND executable (rwxp).
+[Inferior 1 (process 3525) exited normally]

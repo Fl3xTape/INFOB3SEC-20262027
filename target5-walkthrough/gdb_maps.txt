@@ -1,0 +1,15 @@
+Breakpoint 1 at 0x804a077: file target5.c, line 18.
+
+=== /proc/<pid>/maps while inside vulnerable() ===
+  08048000-08049000 r--p 00000000 fe:00 2228231                            /tmp/target5_dbg
+  08049000-080b8000 r-xp 00001000 fe:00 2228231                            /tmp/target5_dbg
+  080b8000-080e8000 r--p 00070000 fe:00 2228231                            /tmp/target5_dbg
+  080e9000-080eb000 r--p 000a0000 fe:00 2228231                            /tmp/target5_dbg
+  080eb000-080ed000 rw-p 000a2000 fe:00 2228231                            /tmp/target5_dbg
+  080ed000-08110000 rw-p 00000000 00:00 0                                  [heap]
+  fff6b000-ffffe000 rw-p 00000000 00:00 0                                  [stack]
+
+=== stack region is writable but NOT executable ===
+[Detaching after vfork from child process 1693]
+Hello World
+[Inferior 1 (process 1689) exited normally]

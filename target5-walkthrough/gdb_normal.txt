@@ -1,0 +1,44 @@
+
+============================================================
+NORMAL RUN: argument is just "AAAA" (no overflow)
+============================================================
+Breakpoint 1 at 0x804a077: file target5.c, line 18.
+Breakpoint 2 at 0x804a082: file target5.c, line 18.
+Breakpoint 3 at 0x804a08a: file target5.c, line 19.
+
+[1] Inside vulnerable(), after prologue, BEFORE strcpy
+    ebp                         = 0xfff6ba48
+    buf (ebp-0x12)              = 0xfff6ba36
+    saved return slot (ebp+4)   = 0xfff6ba4c
+    saved return value NOW      = 0x804a0e7  <-- points back into _main
+    distance buf -> saved EIP   = 0x12 + 4 = 22 bytes
+esp            0xfff6ba24          0xfff6ba24
+ebp            0xfff6ba48          0xfff6ba48
+eip            0x804a077           0x804a077 <vulnerable+23>
+    stack words around the frame (address : value):
+0xfff6ba30:	0x00000000	0x00000000	0x00000000	0xb793f100
+0xfff6ba40:	0x00000000	0x080eb000	0xfff6ba68	0x0804a0e7
+0xfff6ba50:	0xfffeba40	0x00000000	0x00000000	0x0804a097
+    next instruction:
+=> 0x804a077 <vulnerable+23>:	lea    edx,[ebp-0x12]
+
+[2] AFTER strcpy() returns, BEFORE leave/ret
+    The short string only fills the first bytes of buf.
+    Saved return value is still intact:
+    *(ebp+4) = 0x804a0e7
+    buf contents:
+0xfff6ba36:	0x41414141	0xf1000000	0x0000b793	0xb0000000
+0xfff6ba46:	0xba68080e	0xa0e7fff6	0xba400804	0x0000fffe
+0xfff6ba56:	0x00000000	0xa0970000	0x00000804	0xb0000000
+    saved return slot:
+0xfff6ba4c:	0x0804a0e7	0xfffeba40
+
+[3] At the vulnerable() ret instruction
+    ESP points at the saved return slot: 0xfff6ba4c
+    value that ret is about to pop = 0x804a0e7
+    That address is inside _main, right after the call to vulnerable().
+0xfff6ba4c:	0x0804a0e7	0xfffeba40	0x00000000	0x00000000
+   0x804a0e7 <_main+92>:	add    esp,0x10
+[Detaching after vfork from child process 1662]
+Hello World
+[Inferior 1 (process 1658) exited normally]

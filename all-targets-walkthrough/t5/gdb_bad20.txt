@@ -1,0 +1,27 @@
+
+============================================================
+BROKEN RUN: old payload used only 20 bytes of padding
+============================================================
+Breakpoint 1 at 0x804a082: file target5.c, line 18.
+Breakpoint 2 at 0x804a08a: file target5.c, line 19.
+
+[1] AFTER strcpy() returns (20-byte padding version)
+    saved return slot (ebp+4) = 0xfff6ba4c
+    saved return value NOW    = 0xbeef0805
+    Raw bytes around saved EBP/EIP:
+0xfff6ba40:	0x41	0x41	0x41	0x41	0x41	0x41	0x41	0x41
+0xfff6ba48:	0x41	0x41	0x20	0x15	0x05	0x08	0xef	0xbe
+0xfff6ba50:	0xad	0xde	0x4d	0x88	0x0b	0x08	0x00	0x00
+0xfff6ba58:	0x00	0x00	0x00	0x00	0x97	0xa0	0x04	0x08
+    Stack words:
+0xfff6ba40:	0x41414141	0x41414141	0x15204141	0xbeef0805
+0xfff6ba50:	0x884ddead	0x0000080b	0x00000000	0x0804a097
+    The payload was shifted 2 bytes too early: the system address
+    partly lands in saved EBP and partly in saved EIP.
+
+[2] At vulnerable()'s ret instruction
+    ESP = 0xfff6ba4c
+    ret is about to jump to = 0xbeef0805  <-- not system()
+0xfff6ba4c:	0xbeef0805	0x884ddead	0x0000080b	0x00000000
+   0xbeef0805:	/tmp/bad.gdb:35: Error in sourced command file:
+Cannot access memory at address 0xbeef0805

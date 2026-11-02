@@ -1,0 +1,857 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stack Exploit Quiz - Targets 0-6</title>
+<style>
+  :root {
+    --ink:#17202b; --muted:#5b6879; --bg:#f3f6fa; --card:#fff; --line:#d9e1eb;
+    --red:#b42318; --red-bg:#fef3f2; --green:#13713d; --green-bg:#ecfdf3;
+    --blue:#1d5fa7; --blue-bg:#eff6ff; --amber:#8a5a00; --amber-bg:#fffaeb;
+    --purple:#6941c6; --purple-bg:#f4f0ff;
+    --code-bg:#101823; --code-ink:#dce7f4; --code-muted:#8b9db2;
+    --mono:"Cascadia Code",Consolas,"SFMono-Regular","Liberation Mono",monospace;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    margin:0; color:var(--ink);
+    background:
+      radial-gradient(circle at 10% 0%, #e2ecff 0, transparent 32rem),
+      radial-gradient(circle at 92% 16%, #e7f8ef 0, transparent 28rem),
+      var(--bg);
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.6;
+  }
+  a { color:var(--blue); }
+  code, pre { font-family:var(--mono); }
+  .wrap { width:min(1080px,calc(100% - 32px)); margin:0 auto; }
+
+  header.hero {
+    color:#f8fbff;
+    background:
+      radial-gradient(circle at 82% 12%, rgba(80,151,255,.28) 0, transparent 25rem),
+      radial-gradient(circle at 14% 84%, rgba(72,211,146,.14) 0, transparent 20rem),
+      linear-gradient(135deg,#101823 0%,#182a3e 54%,#14332b 100%);
+    border-bottom:1px solid #0a1017; padding:48px 0 38px;
+  }
+  .eyebrow { color:#7de0a8; text-transform:uppercase; letter-spacing:.17em; font-size:.72rem; font-weight:800; margin-bottom:12px; }
+  h1 { margin:0; font-size:clamp(2rem,4.5vw,3.3rem); line-height:1.05; letter-spacing:-.035em; }
+  .lede { max-width:860px; color:#bdcad9; font-size:1.03rem; margin:18px 0 0; }
+  .scorebar { display:flex; gap:10px; flex-wrap:wrap; margin-top:22px; }
+  .score-pill { display:inline-flex; gap:8px; align-items:center; padding:8px 12px; border-radius:999px; border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.07); color:#e7f0f9; font-size:.8rem; font-weight:700; }
+  .score-pill strong { color:#7de0a8; }
+
+  main { padding:32px 0 70px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 22px; }
+  .chips a { text-decoration:none; padding:6px 10px; border-radius:999px; border:1px solid var(--line); background:#fff; color:#455367; font-size:.75rem; font-weight:700; }
+  .chips a:hover { background:var(--blue-bg); border-color:#c7ddf8; color:var(--blue); }
+
+  section.quiz-section { margin:34px 0 0; scroll-margin-top:14px; }
+  .sec-head { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; align-items:end; margin-bottom:12px; }
+  h2 { margin:0; font-size:clamp(1.3rem,2.7vw,1.8rem); letter-spacing:-.02em; }
+  h2 .num { display:inline-grid; place-items:center; width:30px; height:30px; margin-right:7px; border-radius:9px; background:#18283b; color:#fff; font-size:.85rem; vertical-align:3px; }
+  .sec-head .note { color:var(--muted); font-size:.82rem; max-width:560px; }
+  .q-card {
+    background:#fff; border:1px solid var(--line); border-radius:15px;
+    padding:20px 22px; margin:14px 0; box-shadow:0 8px 24px rgba(22,34,51,.045);
+  }
+  .q-card.correct { border-color:#86d7a1; box-shadow:0 0 0 3px rgba(19,113,61,.08); }
+  .q-card.wrong { border-color:#f0aaa4; box-shadow:0 0 0 3px rgba(180,35,24,.07); }
+  .q-top { display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap; align-items:baseline; }
+  .q-num { color:#7a8798; font-family:var(--mono); font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+  .q-type { color:#7a8798; font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.07em; }
+  h3 { margin:5px 0 10px; font-size:1.02rem; line-height:1.4; }
+  pre {
+    margin:14px 0; padding:15px 17px; border-radius:12px; background:var(--code-bg);
+    color:var(--code-ink); font-size:.78rem; line-height:1.5; overflow-x:auto;
+    border:1px solid #263649;
+  }
+  pre .c { color:var(--code-muted); }
+  pre .g { color:#7be0a3; }
+  pre .y { color:#ffd166; }
+  pre .r { color:#ff8d84; }
+
+  .asm-list { display:flex; flex-direction:column; gap:4px; margin:12px 0; }
+  .asm-opt, .option {
+    display:flex; gap:9px; align-items:flex-start; padding:7px 9px;
+    border:1px solid #e4eaf2; border-radius:8px; background:#fbfcfe;
+    cursor:pointer; font-size:.78rem; line-height:1.4;
+  }
+  .asm-opt:hover, .option:hover { background:#f3f8ff; border-color:#c7ddf8; }
+  .asm-opt input, .option input { margin-top:3px; flex:0 0 auto; accent-color:#1d5fa7; }
+  .asm-opt span, .option span { font-family:var(--mono); white-space:pre-wrap; }
+  .options { display:flex; flex-direction:column; gap:6px; margin:12px 0; }
+  .option span { font-family:"Segoe UI",system-ui,sans-serif; }
+
+  .q-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+  button.check {
+    appearance:none; border:1px solid #18283b; background:#18283b; color:#fff;
+    border-radius:9px; padding:8px 13px; font:inherit; font-size:.8rem; font-weight:800; cursor:pointer;
+  }
+  button.check:hover { background:#243b55; }
+  .feedback { display:none; margin-top:12px; padding:12px 14px; border-radius:10px; font-size:.86rem; }
+  .feedback.show { display:block; }
+  .q-card.correct .feedback { display:block; background:var(--green-bg); border:1px solid #b7ebc9; color:#0b5130; }
+  .q-card.wrong .feedback { display:block; background:var(--red-bg); border:1px solid #f5c7c2; color:#68130d; }
+  .feedback strong { display:block; margin-bottom:3px; }
+
+  .test-foot { margin:32px 0 0; display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap; align-items:center; }
+  .test-foot button {
+    appearance:none; border:1px solid #b8c6d8; background:#fff; color:#25384e;
+    border-radius:10px; padding:9px 14px; font:inherit; font-size:.84rem; font-weight:800; cursor:pointer;
+  }
+  .test-foot button:hover { background:#f2f7fd; }
+  .test-foot .status { color:var(--muted); font-size:.84rem; }
+  .callout { border-radius:14px; padding:15px 17px; margin:18px 0; border:1px solid; font-size:.88rem; }
+  .callout.info { background:var(--blue-bg); border-color:#c7ddf8; color:#123f72; }
+  .callout.warn { background:var(--amber-bg); border-color:#f2d28a; color:#664000; }
+  footer { border-top:1px solid var(--line); margin-top:34px; padding-top:18px; color:var(--muted); font-size:.82rem; }
+  @media (max-width:700px) { .q-card { padding:17px 15px; } }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Self-test - targets 0 through 6</div>
+    <h1>Stack exploitation quiz</h1>
+    <p class="lede">
+      Start with source and disassembly, select the lines that matter, then answer
+      target-specific, GDB, and stack/data questions. Every question has a check button
+      and an explanation.
+    </p>
+    <div class="scorebar">
+      <span class="score-pill">Checked correct: <strong id="scoreCorrect">0</strong></span>
+      <span class="score-pill">Questions: <strong id="scoreTotal">0</strong></span>
+      <span class="score-pill">Answered: <strong id="scoreAnswered">0</strong></span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <nav class="chips" aria-label="Quiz sections">
+    <a href="#sec-t0">Target 0</a>
+    <a href="#sec-t1">Target 1</a>
+    <a href="#sec-t2">Target 2</a>
+    <a href="#sec-t3">Target 3</a>
+    <a href="#sec-t4">Target 4</a>
+    <a href="#sec-t5">Target 5</a>
+    <a href="#sec-t6">Target 6</a>
+    <a href="#sec-theory">GDB and stack theory</a>
+    <a href="#sec-data">Data and scope</a>
+  </nav>
+
+  <div class="callout warn">
+    <strong>How to answer line-selection questions</strong>
+    Select every assembly line that is directly relevant to the question. Do not select
+    unrelated setup or output lines just because they appear in the same function.
+  </div>
+
+  <div id="quizRoot"></div>
+
+  <div class="test-foot">
+    <div class="status" id="footStatus">Answer a question and press Check answer.</div>
+    <button id="resetQuiz" type="button">Reset quiz</button>
+  </div>
+
+  <footer>
+    The quiz follows the same code, addresses, and payload logic used in the target
+    walkthroughs. Reload the page to start completely fresh.
+  </footer>
+</main>
+
+<script>
+const QUESTIONS = [
+  // ------------------------------------------------------------ target 0
+  {
+    id: "q0a", section: "t0", kind: "lines",
+    prompt: "Select every assembly line that directly identifies grade/name or performs the unsafe read.",
+    source: [
+      "int _main(int argc, char *argv[])",
+      "{",
+      "    char grade[5];",
+      "    char name[10];",
+      "",
+      "    strcpy(grade, \"nil\");",
+      "    gets(name);",
+      "    printf(\"Hi %s! Your grade is %s.\\n\", name, grade);",
+      "    exit(0);",
+      "}"
+    ],
+    asm: [
+      { t: "0804a0a7  lea eax,[ebp-0xd]        ; &grade", ok: true },
+      { t: "0804a0aa  mov DWORD PTR [eax],0x6c696e ; \"nil\"", ok: true },
+      { t: "0804a0b3  lea eax,[ebp-0x17]       ; &name", ok: true },
+      { t: "0804a0b7  call gets                ; unbounded input", ok: true },
+      { t: "0804a0c2  lea eax,[ebp-0xd]        ; printf argument", ok: false },
+      { t: "0804a0c6  lea eax,[ebp-0x17]       ; printf argument", ok: false },
+      { t: "0804a0d1  call printf", ok: false },
+      { t: "0804a0de  call exit", ok: false }
+    ],
+    explanation: "The first four lines locate grade, initialize it to \"nil\", locate name, and call gets. The later lea instructions only prepare printf arguments; they do not cause the overflow."
+  },
+  {
+    id: "q0b", section: "t0", kind: "mcq",
+    prompt: "GDB shows name = 0xfff6ba51 and grade = 0xfff6ba5b. How many bytes from name[0] to grade[0]?",
+    options: ["5 bytes", "10 bytes", "15 bytes", "20 bytes"],
+    answer: 1,
+    explanation: "0xfff6ba5b - 0xfff6ba51 = 0xa = 10 bytes. That is why sol0 writes exactly 10 bytes before the grade bytes."
+  },
+  {
+    id: "q0c", section: "t0", kind: "mcq",
+    prompt: "What is the purpose of the three NUL bytes in sol0.py?",
+    options: [
+      "They fill name[7..9] and terminate the name string so the grade bytes land at grade[0].",
+      "They overwrite the saved return address.",
+      "They turn the grade string back into \"nil\".",
+      "They create a NOP sled for shellcode."
+    ],
+    answer: 0,
+    explanation: "The SID is 7 bytes and name is 10 bytes. Three NULs fill the rest of name and terminate it. The next bytes, \"A+\", overwrite grade[0..1]. gets adds its own final NUL, so grade becomes \"A+\"."
+  },
+
+  // ------------------------------------------------------------ target 1
+  {
+    id: "q1a", section: "t1", kind: "lines",
+    prompt: "Select every line involved in reaching and hijacking the saved return address in target1.",
+    source: [
+      "void vulnerable()",
+      "{",
+      "    char input[4];",
+      "    gets(input);",
+      "}",
+      "",
+      "int _main()",
+      "{",
+      "    vulnerable();",
+      "    print_bad_grade();",
+      "    return 0;",
+      "}"
+    ],
+    asm: [
+      { t: "0804a165  lea edx,[ebp-0xc]   ; &input", ok: true },
+      { t: "0804a16b  call gets           ; overflow", ok: true },
+      { t: "0804a174  mov ebx,[ebp-0x4]  ; restore ebx", ok: false },
+      { t: "0804a177  leave               ; ESP = EBP, pop saved EBP", ok: true },
+      { t: "0804a178  ret                 ; pop saved EIP", ok: true },
+      { t: "0804a123  <print_good_grade> push ebp", ok: true },
+      { t: "0804a18e  call print_bad_grade ; normal path", ok: false }
+    ],
+    explanation: "The buffer is at EBP-0xc. leave/ret use the saved return slot at EBP+4. The target that must be written there is print_good_grade at 0x0804a123. Restoring ebx and the normal print_bad_grade path are not part of the hijack."
+  },
+  {
+    id: "q1b", section: "t1", kind: "mcq",
+    prompt: "What is the offset from input[0] to the saved return address in target1?",
+    options: ["4 bytes", "12 bytes", "16 bytes", "20 bytes"],
+    answer: 2,
+    explanation: "input starts at EBP-0xc. The saved return address is at EBP+4. The distance is 0xc + 4 = 12 + 4 = 16 bytes."
+  },
+  {
+    id: "q1c", section: "t1", kind: "mcq",
+    prompt: "At vulnerable()'s ret instruction, GDB shows [ESP] = 0x0804a123. What happens next?",
+    options: [
+      "0x0804a123 is popped into EIP, so execution starts at print_good_grade.",
+      "0x0804a123 is written into EBP and the function returns normally.",
+      "ESP is increased by 0x0804a123.",
+      "The program exits because the address is invalid."
+    ],
+    answer: 0,
+    explanation: "ret pops the word at ESP into EIP and adds 4 to ESP. That word is the overwritten saved return address, so control jumps to print_good_grade."
+  },
+
+  // ------------------------------------------------------------ target 2
+  {
+    id: "q2a", section: "t2", kind: "lines",
+    prompt: "Select the lines that establish buf's location, perform the overflow, and return to the injected payload.",
+    source: [
+      "void vulnerable(char *arg)",
+      "{",
+      "    char buf[100];",
+      "    strcpy(buf, arg);",
+      "}",
+      "",
+      "int _main(int argc, char **argv)",
+      "{",
+      "    vulnerable(argv[1]);",
+      "    return 0;",
+      "}"
+    ],
+    asm: [
+      { t: "0804a039  sub esp,0x74              ; frame space", ok: false },
+      { t: "0804a04c  lea edx,[ebp-0x6c]       ; &buf", ok: true },
+      { t: "0804a052  call strcpy              ; overflow", ok: true },
+      { t: "0804a05b  mov ebx,[ebp-0x4]       ; restore ebx", ok: false },
+      { t: "0804a05e  leave                    ; destroy frame", ok: true },
+      { t: "0804a05f  ret                      ; pop saved EIP", ok: true },
+      { t: "0804a060  <_main> push ebp", ok: false }
+    ],
+    explanation: "buf is EBP-0x6c, strcpy performs the unbounded copy, and leave/ret consume the overwritten saved EIP. The frame allocation and ebx restore do not define the offset."
+  },
+  {
+    id: "q2b", section: "t2", kind: "mcq",
+    prompt: "What is the correct offset from buf[0] to the saved EIP in target2?",
+    options: ["100 bytes", "108 bytes", "112 bytes", "116 bytes"],
+    answer: 2,
+    explanation: "buf = EBP-0x6c and saved EIP = EBP+4. 0x6c + 4 = 108 + 4 = 112 bytes."
+  },
+  {
+    id: "q2c", section: "t2", kind: "mcq",
+    prompt: "GDB shows buf = 0xfff6b9dc and the saved EIP slot at 0xfff6ba4c. What does sol2.py write into the saved EIP slot?",
+    options: ["0xfff6ba4c, the saved EIP slot itself", "0xfff6b9dc, the start of buf and shellcode", "0x0804a0ad, the original return address", "0xdeadbeef, a fake return address"],
+    answer: 1,
+    explanation: "The shellcode starts at buf, so the new return address is buf's address: 0xfff6b9dc. The saved EIP slot address 0xfff6ba4c is where the value is written, not the value itself."
+  },
+  {
+    id: "q2d", section: "t2", kind: "mcq",
+    prompt: "What does the first part of shellcode.py do before execve?",
+    options: ["Calls setuid(0)", "Calls printf", "Calls mprotect", "Returns to the saved EBP"],
+    answer: 0,
+    explanation: "The first 8 bytes are the setuid(0) shellcode. That is necessary because target2 is setuid-root, and the shell must run with root privileges."
+  },
+
+  // ------------------------------------------------------------ target 3
+  {
+    id: "q3a", section: "t3", kind: "lines",
+    prompt: "Select the lines that let the overflow control a and p and then perform the write *p = a.",
+    source: [
+      "void vulnerable(char *arg)",
+      "{",
+      "    int *p;",
+      "    int a;",
+      "    char buf[2048];",
+      "",
+      "    strncpy(buf, arg, sizeof(buf) + 8);",
+      "",
+      "    *p = a;",
+      "}"
+    ],
+    asm: [
+      { t: "0804a039  sub esp,0x814           ; frame space", ok: false },
+      { t: "0804a04c  push 0x808              ; sizeof(buf)+8", ok: true },
+      { t: "0804a054  lea edx,[ebp-0x810]    ; &buf", ok: true },
+      { t: "0804a05d  call strncpy           ; copies 2056 bytes", ok: true },
+      { t: "0804a065  mov eax,[ebp-0xc]      ; p", ok: true },
+      { t: "0804a068  mov edx,[ebp-0x10]     ; a", ok: true },
+      { t: "0804a06b  mov [eax],edx          ; *p = a", ok: true },
+      { t: "0804a071  leave", ok: false },
+      { t: "0804a072  ret", ok: false }
+    ],
+    explanation: "The 0x808 length makes strncpy write 8 bytes past buf into a and p. The three mov instructions then load p, load a, and write a to *p. leave/ret happen later."
+  },
+  {
+    id: "q3b", section: "t3", kind: "mcq",
+    prompt: "What values does sol3.py place into a and p?",
+    options: [
+      "a = 0xfff6b238 (shellcode), p = 0xfff6ba4c (saved EIP slot)",
+      "a = 0xfff6ba4c (saved EIP slot), p = 0xfff6b238 (shellcode)",
+      "a = 0, p = 0",
+      "a = 0x0804a0c0, p = 0xfff6ba38"
+    ],
+    answer: 0,
+    explanation: "The code does *p = a. We want the saved EIP slot to receive the shellcode address. Therefore a is the shellcode address 0xfff6b238, and p is the saved EIP slot 0xfff6ba4c."
+  },
+  {
+    id: "q3c", section: "t3", kind: "mcq",
+    prompt: "Why does sol3.py not overwrite the saved EIP directly with strncpy?",
+    options: [
+      "strncpy copies only 2056 bytes, which reaches a and p but not EBP+4.",
+      "strncpy automatically stops at the saved EIP.",
+      "The saved EIP is read-only.",
+      "The saved EIP is outside the stack."
+    ],
+    answer: 0,
+    explanation: "buf is 2048 bytes. The extra 8 bytes overwrite a and p, which sit directly above buf. The saved EIP is higher at EBP+4, beyond those 8 bytes."
+  },
+  {
+    id: "q3d", section: "t3", kind: "mcq",
+    prompt: "What does the instruction mov [eax],edx do in target3?",
+    options: [
+      "Writes the 4-byte value in EDX to the memory address in EAX.",
+      "Writes the 4-byte value in EAX to the memory address in EDX.",
+      "Moves EDX into EAX.",
+      "Pops EDX from the stack."
+    ],
+    answer: 0,
+    explanation: "In Intel syntax, the destination is on the left. EAX holds p, EDX holds a, so mov [eax],edx performs *p = a."
+  },
+
+  // ------------------------------------------------------------ target 4
+  {
+    id: "q4a", section: "t4", kind: "lines",
+    prompt: "Select the lines that show the size overflow and the oversized read loop in target4.",
+    source: [
+      "unsigned int count;",
+      "fread(&count, sizeof(unsigned int), 1, f);",
+      "unsigned int *buf = alloca(count * sizeof(unsigned int));",
+      "read_elements(f, buf, count);",
+      "",
+      "void read_elements(FILE *f, int *buf, unsigned int count)",
+      "{",
+      "    for (unsigned int i = 0; i < count; i++)",
+      "        fread(&buf[i], sizeof(unsigned int), 1, f);",
+      "}"
+    ],
+    asm: [
+      { t: "0804a149  mov eax,[ebp-0x14]      ; count", ok: true },
+      { t: "0804a14c  shl eax,2               ; count * 4", ok: true },
+      { t: "0804a16b  sub esp,eax             ; alloca(size)", ok: true },
+      { t: "0804a16d  mov eax,esp             ; buf = ESP", ok: true },
+      { t: "0804a18e  call read_elements", ok: true },
+      { t: "0804a0b3  lea edx,[eax*4+0x0]    ; i * 4", ok: true },
+      { t: "0804a0c7  call fread              ; write one word", ok: true },
+      { t: "0804a134  jmp 0x804a199          ; error-report path", ok: false },
+      { t: "0804a193  add esp,0x10            ; caller cleanup", ok: false }
+    ],
+    explanation: "count is shifted left by 2. With 0x40000000, the 32-bit result wraps to zero, so alloca allocates nothing. The buffer remains at ESP, but read_elements still receives the huge count and keeps reading words from the file until fread hits EOF."
+  },
+  {
+    id: "q4b", section: "t4", kind: "mcq",
+    prompt: "What is 0x40000000 * 4 in 32-bit unsigned arithmetic?",
+    options: ["0x00000000", "0x10000000", "0x40000000", "0xffffffff"],
+    answer: 0,
+    explanation: "0x40000000 * 4 = 0x100000000, which does not fit in 32 bits. The low 32 bits are zero, so alloca gets a size of 0."
+  },
+  {
+    id: "q4c", section: "t4", kind: "mcq",
+    prompt: "GDB shows buf = 0xfff6ba20 and the saved EIP slot = 0xfff6ba4c. Why does sol4.py use word index 11?",
+    options: [
+      "0xfff6ba4c - 0xfff6ba20 = 0x2c = 44 bytes, and 44 / 4 = 11.",
+      "Because the shellcode is 11 words long.",
+      "Because count is 0x11.",
+      "Because EBP is always 11 words above the buffer."
+    ],
+    answer: 0,
+    explanation: "The saved EIP slot is 44 bytes above the buffer start. Each file word is 4 bytes, so the 12th word, index 11, is the saved EIP."
+  },
+  {
+    id: "q4d", section: "t4", kind: "mcq",
+    prompt: "Why does the read loop stop even though count is 0x40000000?",
+    options: [
+      "fread eventually returns less than 1 at EOF, so the loop breaks.",
+      "The CPU refuses to read more than 160 words.",
+      "alloca automatically limits the loop.",
+      "The payload changes count to zero before the loop."
+    ],
+    answer: 0,
+    explanation: "read_elements receives its own count argument before the overflow. It keeps looping until fread cannot read another word, which happens when the file ends."
+  },
+
+  // ------------------------------------------------------------ target 5
+  {
+    id: "q5a", section: "t5", kind: "lines",
+    prompt: "Select every line relevant to the 22-byte offset and the ret2libc target in target5.",
+    source: [
+      "void vulnerable(char *arg)",
+      "{",
+      "    char buf[10];",
+      "    strcpy(buf, arg);",
+      "}",
+      "",
+      "void greetings(void)",
+      "{",
+      "    system(\"echo Hello World\");",
+      "}"
+    ],
+    asm: [
+      { t: "0804a077  lea edx,[ebp-0x12]    ; &buf", ok: true },
+      { t: "0804a07d  call strcpy           ; overflow", ok: true },
+      { t: "0804a089  leave                 ; destroy frame", ok: true },
+      { t: "0804a08a  ret                   ; pop saved EIP", ok: true },
+      { t: "0804a052  call __libc_system    ; existing executable code", ok: true },
+      { t: "0804a057  add esp,0x10", ok: false },
+      { t: "0804a035  <greetings> push ebp", ok: false }
+    ],
+    explanation: "buf is EBP-0x12, so saved EIP is 0x12+4 = 22 bytes away. The binary already contains system(), which is why the ret2libc payload can reuse it even though DEP blocks stack shellcode."
+  },
+  {
+    id: "q5b", section: "t5", kind: "mcq",
+    prompt: "What is the correct offset from buf[0] to the saved EIP in target5?",
+    options: ["10 bytes", "18 bytes", "20 bytes", "22 bytes"],
+    answer: 3,
+    explanation: "buf is at EBP-0x12 = EBP-18. saved EBP is at EBP, and saved EIP is at EBP+4. 18 + 4 = 22 bytes."
+  },
+  {
+    id: "q5c", section: "t5", kind: "mcq",
+    prompt: "Why did the old 20-byte target5 payload segfault?",
+    options: [
+      "It shifted the system address two bytes early and produced saved EIP 0xbeef0805.",
+      "It used system instead of execve.",
+      "DEP blocked the system function.",
+      "The payload was too short to reach the stack."
+    ],
+    answer: 0,
+    explanation: "With 20 bytes of padding, the system address straddled saved EBP and saved EIP. GDB showed saved EIP became 0xbeef0805, which is not executable. The fix was exactly two more bytes of padding."
+  },
+  {
+    id: "q5d", section: "t5", kind: "mcq",
+    prompt: "Why does DEP/NX not prevent the target5 ret2libc exploit?",
+    options: [
+      "DEP only blocks executing data; system() is existing executable code.",
+      "DEP is disabled in target5.",
+      "DEP only protects the heap.",
+      "system() is copied onto the stack before it runs."
+    ],
+    answer: 0,
+    explanation: "NX marks the stack non-executable. The exploit does not execute data on the stack; it jumps to the existing system() code in the executable text segment."
+  },
+  {
+    id: "q5e", section: "t5", kind: "mcq",
+    prompt: "What is the role of the 0xdeadbeef fake return address in the target5 payload?",
+    options: [
+      "It is system()'s return address after the shell exits.",
+      "It is the address of /bin/sh.",
+      "It is the new saved EBP.",
+      "It is the system() function address."
+    ],
+    answer: 0,
+    explanation: "A normal call pushes a return address. The exploit uses ret to enter system(), so it must supply that missing return address manually. After the shell exits, system returns to 0xdeadbeef and the process crashes, which is allowed."
+  },
+
+  // ------------------------------------------------------------ target 6
+  {
+    id: "q6a", section: "t6", kind: "lines",
+    prompt: "Select the lines that establish the 1024-byte buffer and the 1036-byte saved-EIP offset in target6.",
+    source: [
+      "void vulnerable(char *arg)",
+      "{",
+      "    char buf[1024];",
+      "    strcpy(buf, arg);",
+      "}",
+      "",
+      "// MINIASLR: stack_goal -= r & 0xFF;"
+    ],
+    asm: [
+      { t: "0804a055  sub esp,0x404             ; frame space", ok: false },
+      { t: "0804a06b  lea edx,[ebp-0x408]      ; &buf", ok: true },
+      { t: "0804a074  call strcpy              ; overflow", ok: true },
+      { t: "0804a080  leave                    ; destroy frame", ok: true },
+      { t: "0804a081  ret                      ; pop saved EIP", ok: true },
+      { t: "0804a060  add eax,0x9dfa0", ok: false }
+    ],
+    explanation: "buf is EBP-0x408 = EBP-1032. saved EBP is at offset 1032 and saved EIP at offset 1036. The frame-space subtraction and GOT calculation do not define the overwrite offset."
+  },
+  {
+    id: "q6b", section: "t6", kind: "mcq",
+    prompt: "What is the offset from buf[0] to the saved EIP in target6?",
+    options: ["1024 bytes", "1032 bytes", "1036 bytes", "1040 bytes"],
+    answer: 2,
+    explanation: "buf is 1024 bytes, then 8 bytes of compiler padding/canary-like space, then saved EBP at offset 1032, then saved EIP at offset 1036."
+  },
+  {
+    id: "q6c", section: "t6", kind: "mcq",
+    prompt: "Why does returning to 0xfff6b7c8 work even though buf moves by 0-255 bytes?",
+    options: [
+      "It lands 408+r bytes into the 900-byte NOP sled, then slides into shellcode at offset 900.",
+      "It points exactly at the shellcode in every run.",
+      "It disables MINIASLR.",
+      "It jumps to system() instead of the stack."
+    ],
+    answer: 0,
+    explanation: "GDB showed buf between 0xfff6b540 and 0xfff6b630. The fixed return address is 0xfff6b7c8, so the landing offset is 0xfff6b7c8 - (0xfff6b630 - r) = 408 + r. For r up to 255, that is still inside the 0-899 NOP sled."
+  },
+  {
+    id: "q6d", section: "t6", kind: "mcq",
+    prompt: "Where does sol6.py place the shellcode and the saved-EIP overwrite?",
+    options: [
+      "Shellcode at offset 900; return address at offset 1036.",
+      "Shellcode at offset 1036; return address at offset 900.",
+      "Shellcode at offset 0; return address at offset 1040.",
+      "Shellcode after the return address, at offset 1100."
+    ],
+    answer: 0,
+    explanation: "The first 900 bytes are NOPs. Shellcode starts at offset 900. The saved EIP is overwritten at offset 1036 with 0xfff6b7c8."
+  },
+
+  // ------------------------------------------------------------ theory
+  {
+    id: "qt1", section: "theory", kind: "mcq",
+    prompt: "What does GDB command x/20wx $ebp-0x30 do?",
+    options: [
+      "Examine 20 32-bit words in hexadecimal starting at EBP-0x30.",
+      "Print the value of EBP-0x30 only.",
+      "Set EBP to 0x30.",
+      "Disassemble 20 instructions at EBP."
+    ],
+    answer: 0,
+    explanation: "x means examine memory. 20 is the repeat count, w means 32-bit words, and x means hexadecimal. It starts at the address EBP-0x30."
+  },
+  {
+    id: "qt2", section: "theory", kind: "mcq",
+    prompt: "What is the difference between p/x $ebp+4 and x/wx $ebp+4?",
+    options: [
+      "p/x prints the address value EBP+4; x/wx reads the 32-bit word stored at that address.",
+      "They are exactly the same command.",
+      "p/x reads memory; x/wx prints an address.",
+      "p/x changes EBP; x/wx does not."
+    ],
+    answer: 0,
+    explanation: "p/x evaluates an expression and prints the result. x/wx dereferences the address and shows the memory word at EBP+4, which is the saved EIP slot."
+  },
+  {
+    id: "qt3", section: "theory", kind: "mcq",
+    prompt: "Which command shows the current values of EIP, ESP, and EBP?",
+    options: [
+      "info registers eip esp ebp",
+      "x/3wx $esp",
+      "disassemble main",
+      "break *0x0804a000"
+    ],
+    answer: 0,
+    explanation: "info registers prints register contents. The x command shows memory, disassemble shows code, and break sets a breakpoint."
+  },
+  {
+    id: "qt4", section: "theory", kind: "mcq",
+    prompt: "What is the difference between stepi and nexti?",
+    options: [
+      "stepi executes one machine instruction and can enter a call; nexti steps over a call.",
+      "stepi runs to the next breakpoint; nexti runs to the next source line only.",
+      "stepi only works in TUI mode.",
+      "They are identical at the assembly level."
+    ],
+    answer: 0,
+    explanation: "Both work at the instruction level. stepi steps into a called function, while nexti treats a call as one step and stops after it returns."
+  },
+  {
+    id: "qt5", section: "theory", kind: "mcq",
+    prompt: "What does break *0x0804a077 do?",
+    options: [
+      "Sets a breakpoint at the exact instruction address 0x0804a077.",
+      "Reads the word at 0x0804a077.",
+      "Runs the program until EIP reaches 0x0804a077, then deletes the breakpoint.",
+      "Sets EIP to 0x0804a077."
+    ],
+    answer: 0,
+    explanation: "The * prefix means the argument is an address, not a source line or function name. GDB stops when execution reaches that exact instruction."
+  },
+  {
+    id: "qt6", section: "theory", kind: "mcq",
+    prompt: "What does the leave instruction do?",
+    options: [
+      "mov esp,ebp; pop ebp",
+      "pop eip; add esp,4",
+      "push ebp; mov ebp,esp",
+      "sub esp,4; mov [esp],ebp"
+    ],
+    answer: 0,
+    explanation: "leave discards the current locals by setting ESP to EBP, then pops the saved EBP. After leave, ESP points at the saved EIP slot."
+  },
+  {
+    id: "qt7", section: "theory", kind: "mcq",
+    prompt: "What does the ret instruction do?",
+    options: [
+      "Pops the return address at ESP into EIP and adds 4 to ESP.",
+      "Pushes EIP onto the stack and jumps to EBP.",
+      "Sets ESP to EBP and pops EBP.",
+      "Adds 4 to EIP without touching ESP."
+    ],
+    answer: 0,
+    explanation: "ret transfers control to the address stored at the top of the stack. It increments ESP by 4 because the return address is 4 bytes on 32-bit x86."
+  },
+  {
+    id: "qt8", section: "theory", kind: "mcq",
+    prompt: "On 32-bit x86, what does push eax do to the stack?",
+    options: [
+      "Subtracts 4 from ESP and writes EAX at the new ESP.",
+      "Adds 4 to ESP and writes EAX at the old ESP.",
+      "Reads the word at ESP into EAX and adds 4.",
+      "Does not change ESP; it only copies EAX."
+    ],
+    answer: 0,
+    explanation: "The stack grows downward. push subtracts 4 from ESP, then stores the 4-byte value at the new, lower address."
+  },
+  {
+    id: "qt9", section: "theory", kind: "mcq",
+    prompt: "How is 0x0804a123 stored in memory on little-endian x86?",
+    options: ["23 a1 04 08", "08 04 a1 23", "a1 23 08 04", "12 34 56 78"],
+    answer: 0,
+    explanation: "Little-endian stores the least significant byte first: 0x23, then 0xa1, then 0x04, then 0x08."
+  },
+  {
+    id: "qt10", section: "theory", kind: "mcq",
+    prompt: "In 32-bit cdecl, why is the first argument normally at [EBP+8]?",
+    options: [
+      "Four bytes are the saved EBP and four bytes are the saved return address.",
+      "The first argument is always zero.",
+      "Arguments are always 8 bytes long.",
+      "EBP points to the first argument, and +8 skips the locals."
+    ],
+    answer: 0,
+    explanation: "After the prologue, [EBP] is the saved EBP and [EBP+4] is the return address. Arguments pushed by the caller start at [EBP+8]."
+  },
+
+  // ------------------------------------------------------------ data and scope
+  {
+    id: "qd1", section: "data", kind: "multi",
+    prompt: "Which values are directly needed to build the target2 return-to-shellcode payload?",
+    options: [
+      "The stack buffer address (0xfff6b9dc)",
+      "The offset from buf to saved EIP (112)",
+      "The shellcode bytes",
+      "The saved EBP value",
+      "The process PID",
+      "The machine hostname"
+    ],
+    answer: [0, 1, 2],
+    explanation: "The payload needs the shellcode, enough padding to reach offset 112, and the buffer address to use as the new saved EIP. The saved EBP value, PID, and hostname are not used."
+  },
+  {
+    id: "qd2", section: "data", kind: "multi",
+    prompt: "Which values are directly relevant to the target5 ret2libc payload?",
+    options: [
+      "The address of system() (0x08051520)",
+      "The address of the string \"/bin/sh\" (0x080b884d)",
+      "A fake return address for system() (0xdeadbeef)",
+      "A NOP sled address on the stack",
+      "The saved EBP value",
+      "The process PID"
+    ],
+    answer: [0, 1, 2],
+    explanation: "ret2libc needs executable code address, an argument address, and a return address for the called function. It does not need a stack NOP sled or the saved EBP value."
+  },
+  {
+    id: "qd3", section: "data", kind: "multi",
+    prompt: "Which pieces of data are commonly used when turning a stack overflow into control-flow hijacking?",
+    options: [
+      "Buffer address",
+      "Offset from buffer to saved EIP",
+      "Saved EIP slot value",
+      "Padding / NOP sled",
+      "Target function or shellcode address",
+      "The source file's checksum"
+    ],
+    answer: [0, 1, 2, 3, 4],
+    explanation: "The core ingredients are where the buffer is, how far it is from the saved EIP, what value currently occupies the return slot, filler/sled bytes, and what address should replace it. Checksums are not part of the exploit."
+  },
+  {
+    id: "qd4", section: "data", kind: "mcq",
+    prompt: "Which kind of data is stored at [EBP+4]?",
+    options: [
+      "The saved return address that ret pops into EIP.",
+      "The first local variable.",
+      "The saved EBP value.",
+      "The current ESP value."
+    ],
+    answer: 0,
+    explanation: "[EBP] is the saved EBP. [EBP+4] is the saved return address. [EBP+8] is the first argument in cdecl."
+  }
+];
+
+const SECTIONS = [
+  { id: "t0", title: "Target 0 - overwrite the grade", note: "Array adjacency, gets, and data changes." },
+  { id: "t1", title: "Target 1 - return to print_good_grade", note: "Saved EIP offset and ret2win." },
+  { id: "t2", title: "Target 2 - return to shellcode", note: "Executable stack, 112-byte offset, shellcode." },
+  { id: "t3", title: "Target 3 - write-what-where", note: "Controlled a and p, then *p = a." },
+  { id: "t4", title: "Target 4 - alloca integer overflow", note: "Size wrap, zero-size buffer, file-driven read." },
+  { id: "t5", title: "Target 5 - DEP and ret2libc", note: "22-byte offset, system, fake return." },
+  { id: "t6", title: "Target 6 - MINIASLR and NOP sled", note: "1036-byte offset, 0-255 stack shift." },
+  { id: "theory", title: "GDB and stack theory", note: "Registers, memory reads, breakpoints, calling convention." },
+  { id: "data", title: "Data and scope checkpoint", note: "Which addresses and values actually matter." }
+];
+
+const byId = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function renderSource(lines) {
+  if (!lines) return "";
+  return `<pre>${lines.map((line, i) => `${String(i + 1).padStart(2, " ")}  ${esc(line)}`).join("\n")}</pre>`;
+}
+
+function renderQuestion(q, n) {
+  const typeLabel = q.kind === "lines" ? "Select relevant assembly lines" : (q.kind === "multi" ? "Select all that apply" : "Multiple choice");
+  let body = renderSource(q.source);
+
+  if (q.kind === "lines") {
+    body += `<div class="asm-list">${q.asm.map((line, i) =>
+      `<label class="asm-opt"><input type="checkbox" value="${i}"><span>${esc(line.t)}</span></label>`
+    ).join("")}</div>`;
+  } else {
+    const inputType = q.kind === "multi" ? "checkbox" : "radio";
+    body += `<div class="options">${q.options.map((opt, i) =>
+      `<label class="option"><input type="${inputType}" name="${q.id}" value="${i}"><span>${esc(opt)}</span></label>`
+    ).join("")}</div>`;
+  }
+
+  return `<article class="q-card" id="${q.id}" data-qid="${q.id}">
+    <div class="q-top"><span class="q-num">Question ${n}</span><span class="q-type">${typeLabel}</span></div>
+    <h3>${esc(q.prompt)}</h3>
+    ${body}
+    <div class="q-actions"><button class="check" type="button" data-check="${q.id}">Check answer</button></div>
+    <div class="feedback" data-feedback="${q.id}"></div>
+  </article>`;
+}
+
+function buildQuiz() {
+  const root = document.getElementById("quizRoot");
+  let n = 0;
+  root.innerHTML = SECTIONS.map(sec => {
+    const qs = QUESTIONS.filter(q => q.section === sec.id);
+    return `<section class="quiz-section" id="sec-${sec.id}">
+      <div class="sec-head">
+        <h2><span class="num">${sec.id.replace("t", "") === "heory" ? "G" : (sec.id === "data" ? "D" : sec.id.replace("t", ""))}</span>${esc(sec.title)}</h2>
+        <div class="note">${esc(sec.note)}</div>
+      </div>
+      ${qs.map(q => { n += 1; return renderQuestion(q, n); }).join("")}
+    </section>`;
+  }).join("");
+
+  document.getElementById("scoreTotal").textContent = QUESTIONS.length;
+  root.querySelectorAll("button[data-check]").forEach(btn => {
+    btn.addEventListener("click", () => checkAnswer(btn.dataset.check));
+  });
+  updateScore();
+}
+
+function checkAnswer(id) {
+  const q = byId[id];
+  const card = document.getElementById(id);
+  const inputs = Array.from(card.querySelectorAll("input"));
+  const selected = inputs.filter(input => input.checked).map(input => Number(input.value)).sort((a, b) => a - b);
+  const correct = (q.kind === "lines"
+    ? q.asm.map((line, i) => line.ok ? i : null).filter(i => i !== null)
+    : (Array.isArray(q.answer) ? q.answer : [q.answer])
+  ).slice().sort((a, b) => a - b);
+  const ok = selected.length === correct.length && selected.every((v, i) => v === correct[i]);
+
+  card.classList.remove("correct", "wrong");
+  card.classList.add(ok ? "correct" : "wrong");
+  card.dataset.checked = ok ? "correct" : "wrong";
+
+  const feedback = card.querySelector(`[data-feedback="${id}"]`);
+  feedback.innerHTML = `<strong>${ok ? "Correct." : "Not quite."}</strong>${esc(q.explanation)}`;
+  updateScore();
+}
+
+function updateScore() {
+  const cards = Array.from(document.querySelectorAll(".q-card"));
+  const correct = cards.filter(c => c.dataset.checked === "correct").length;
+  const answered = cards.filter(c => c.dataset.checked).length;
+  document.getElementById("scoreCorrect").textContent = correct;
+  document.getElementById("scoreAnswered").textContent = answered;
+  document.getElementById("footStatus").textContent =
+    answered === 0 ? "Answer a question and press Check answer." :
+    `Checked ${answered} of ${cards.length}; ${correct} correct.`;
+}
+
+document.getElementById("resetQuiz").addEventListener("click", () => {
+  document.querySelectorAll(".q-card").forEach(card => {
+    card.classList.remove("correct", "wrong");
+    delete card.dataset.checked;
+    card.querySelectorAll("input").forEach(input => { input.checked = false; });
+    const feedback = card.querySelector(".feedback");
+    feedback.textContent = "";
+    feedback.classList.remove("show");
+  });
+  updateScore();
+  window.scrollTo(0, 0);
+});
+
+buildQuiz();
+</script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+=== vulnerable ===
+
+target1:     file format elf32-i386
+
+
+Disassembly of section .init:
+
+Disassembly of section .plt:
+
+Disassembly of section .text:
+
+0804a151 <vulnerable>:
+ 804a151:	55                   	push   ebp
+ 804a152:	89 e5                	mov    ebp,esp
+ 804a154:	53                   	push   ebx
+ 804a155:	83 ec 14             	sub    esp,0x14
+ 804a158:	e8 3d 00 00 00       	call   804a19a <__x86.get_pc_thunk.ax>
+ 804a15d:	05 a3 de 09 00       	add    eax,0x9dea3
+ 804a162:	83 ec 0c             	sub    esp,0xc
+ 804a165:	8d 55 f4             	lea    edx,[ebp-0xc]
+ 804a168:	52                   	push   edx
+ 804a169:	89 c3                	mov    ebx,eax
+ 804a16b:	e8 f0 dd 00 00       	call   8057f60 <_IO_gets>
+ 804a170:	83 c4 10             	add    esp,0x10
+ 804a173:	90                   	nop
+ 804a174:	8b 5d fc             	mov    ebx,DWORD PTR [ebp-0x4]
+ 804a177:	c9                   	leave  
+ 804a178:	c3                   	ret    
+
+Disassembly of section __libc_freeres_fn:
+
+Disassembly of section .fini:
+=== _main ===
+
+target1:     file format elf32-i386
+
+
+Disassembly of section .init:
+
+Disassembly of section .plt:
+
+Disassembly of section .text:
+
+0804a179 <_main>:
+ 804a179:	55                   	push   ebp
+ 804a17a:	89 e5                	mov    ebp,esp
+ 804a17c:	83 ec 08             	sub    esp,0x8
+ 804a17f:	e8 16 00 00 00       	call   804a19a <__x86.get_pc_thunk.ax>
+ 804a184:	05 7c de 09 00       	add    eax,0x9de7c
+ 804a189:	e8 c3 ff ff ff       	call   804a151 <vulnerable>
+ 804a18e:	e8 62 ff ff ff       	call   804a0f5 <print_bad_grade>
+ 804a193:	b8 00 00 00 00       	mov    eax,0x0
+ 804a198:	c9                   	leave  
+ 804a199:	c3                   	ret    
+
+Disassembly of section __libc_freeres_fn:
+
+Disassembly of section .fini:
+=== print_good_grade ===
+
+target1:     file format elf32-i386
+
+
+Disassembly of section .init:
+
+Disassembly of section .plt:
+
+Disassembly of section .text:
+
+0804a123 <print_good_grade>:
+ 804a123:	55                   	push   ebp
+ 804a124:	89 e5                	mov    ebp,esp
+ 804a126:	53                   	push   ebx
+ 804a127:	83 ec 04             	sub    esp,0x4
+ 804a12a:	e8 71 fb ff ff       	call   8049ca0 <__x86.get_pc_thunk.bx>
+ 804a12f:	81 c3 d1 de 09 00    	add    ebx,0x9ded1
+ 804a135:	83 ec 0c             	sub    esp,0xc
+ 804a138:	8d 83 8f e0 fc ff    	lea    eax,[ebx-0x31f71]
+ 804a13e:	50                   	push   eax
+ 804a13f:	e8 0c e1 00 00       	call   8058250 <_IO_puts>
+ 804a144:	83 c4 10             	add    esp,0x10
+ 804a147:	83 ec 0c             	sub    esp,0xc
+ 804a14a:	6a 01                	push   0x1
+ 804a14c:	e8 4f 66 00 00       	call   80507a0 <exit>
+
+Disassembly of section __libc_freeres_fn:
+
+Disassembly of section .fini:
+=== print_bad_grade ===
+
+target1:     file format elf32-i386
+
+
+Disassembly of section .init:
+
+Disassembly of section .plt:
+
+Disassembly of section .text:
+
+0804a0f5 <print_bad_grade>:
+ 804a0f5:	55                   	push   ebp
+ 804a0f6:	89 e5                	mov    ebp,esp
+ 804a0f8:	53                   	push   ebx
+ 804a0f9:	83 ec 04             	sub    esp,0x4
+ 804a0fc:	e8 9f fb ff ff       	call   8049ca0 <__x86.get_pc_thunk.bx>
+ 804a101:	81 c3 ff de 09 00    	add    ebx,0x9deff
+ 804a107:	83 ec 0c             	sub    esp,0xc
+ 804a10a:	8d 83 7c e0 fc ff    	lea    eax,[ebx-0x31f84]
+ 804a110:	50                   	push   eax
+ 804a111:	e8 3a e1 00 00       	call   8058250 <_IO_puts>
+ 804a116:	83 c4 10             	add    esp,0x10
+ 804a119:	83 ec 0c             	sub    esp,0xc
+ 804a11c:	6a 00                	push   0x0
+ 804a11e:	e8 7d 66 00 00       	call   80507a0 <exit>
+
+Disassembly of section __libc_freeres_fn:
+
+Disassembly of section .fini:
